@@ -526,11 +526,11 @@ body {
     <div class="field-row">
       <div class="field">
         <label>Your PIN (Sender)</label>
-        <input type="password" id="cfg-pin1" placeholder="e.g. 1234" maxlength="4" inputmode="numeric">
+        <input type="text" id="cfg-pin1" placeholder="1234" maxlength="4" inputmode="numeric">
       </div>
       <div class="field">
         <label>Her PIN (Receiver)</label>
-        <input type="password" id="cfg-pin2" placeholder="e.g. 5678" maxlength="4" inputmode="numeric">
+        <input type="text" id="cfg-pin2" placeholder="5678" maxlength="4" inputmode="numeric">
       </div>
     </div>
 
@@ -749,21 +749,30 @@ function saveConfig() {
   const pin2      = v('cfg-pin2').trim();
   const errEl     = document.getElementById('setup-error');
 
+  console.log('Saving config...', {apiKey: apiKey.slice(0,5)+'...', projectId, pin1, pin2});
+
   if (!apiKey || !projectId || !pin1 || !pin2) {
-    showSetupError('Please fill in all fields.'); return;
+    showSetupError('⚠️ Please fill in all 4 fields!'); 
+    console.warn('Missing fields');
+    return;
   }
   if (!/^\d{4}$/.test(pin1) || !/^\d{4}$/.test(pin2)) {
-    showSetupError('PINs must be exactly 4 digits.'); return;
+    showSetupError('⚠️ Both PINs must be exactly 4 digits (0-9).'); 
+    console.warn('Invalid PIN format');
+    return;
   }
   if (pin1 === pin2) {
-    showSetupError('Your PIN and her PIN must be different.'); return;
+    showSetupError('⚠️ Your PIN and her PIN must be DIFFERENT.'); 
+    console.warn('Same PINs');
+    return;
   }
 
   CONFIG = { apiKey, projectId, pin1, pin2 };
   localStorage.setItem('studybell_cfg', JSON.stringify(CONFIG));
+  console.log('Config saved!');
   errEl.classList.remove('show');
   initFirebase();
-  showScreen('login');
+  setTimeout(() => showScreen('login'), 300);
 }
 
 function showSetupError(msg) {
