@@ -1,0 +1,990 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>StudyBell — Focus Together</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="StudyBell">
+<meta name="theme-color" content="#c97b61">
+<meta name="description" content="Focus together with StudyBell.">
+<link rel="manifest" href="./manifest.json">
+<link rel="apple-touch-icon" href="./icon-192.svg">
+<link rel="icon" type="image/svg+xml" href="./icon-192.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=Nunito:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #fdf6f0;
+  --card: #fff9f5;
+  --accent: #c97b61;
+  --accent-deep: #a85f47;
+  --accent-soft: #f5c4b3;
+  --accent-pale: #fdeee8;
+  --text: #3a2520;
+  --muted: #967d76;
+  --border: #efddd6;
+  --success: #6aab8a;
+  --danger: #c05050;
+  --radius: 22px;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body { height: 100%; }
+
+body {
+  font-family: 'Nunito', sans-serif;
+  background: var(--bg);
+  background-image: radial-gradient(circle at 20% 20%, #fceae2 0%, transparent 50%),
+                    radial-gradient(circle at 80% 80%, #f8e8e0 0%, transparent 50%);
+  color: var(--text);
+  min-height: 100svh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  padding-bottom: 32px;
+}
+
+/* ========================
+   SCREEN SYSTEM
+======================== */
+.screen { display: none; width: 100%; max-width: 380px; animation: fadeUp 0.3s ease; }
+.screen.active { display: block; }
+
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ========================
+   SHARED CARD
+======================== */
+.card {
+  background: var(--card);
+  border-radius: var(--radius);
+  padding: 36px 28px;
+  box-shadow: 0 4px 24px rgba(180, 100, 80, 0.10), 0 1px 3px rgba(180, 100, 80, 0.06);
+  border: 1px solid var(--border);
+}
+
+/* ========================
+   SETUP SCREEN
+======================== */
+.setup-logo {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 1.9rem;
+  color: var(--accent);
+  text-align: center;
+  margin-bottom: 4px;
+}
+.setup-logo em { font-style: italic; }
+
+.setup-tagline {
+  text-align: center;
+  font-size: 0.75rem;
+  color: var(--muted);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  margin-bottom: 30px;
+}
+
+.field { margin-bottom: 15px; }
+.field label {
+  display: block;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+  margin-bottom: 6px;
+}
+
+.field input {
+  width: 100%;
+  background: var(--bg);
+  border: 1.5px solid var(--border);
+  border-radius: 13px;
+  padding: 11px 15px;
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.9rem;
+  color: var(--text);
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+.field input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(201, 123, 97, 0.12);
+}
+.field input::placeholder { color: #c8b0a8; }
+
+.field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+.btn-primary {
+  width: 100%;
+  background: var(--accent);
+  color: white;
+  border: none;
+  border-radius: 14px;
+  padding: 14px;
+  font-family: 'Nunito', sans-serif;
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+  margin-top: 10px;
+  transition: background 0.2s, transform 0.15s;
+  letter-spacing: 0.02em;
+}
+.btn-primary:active { transform: scale(0.96); background: var(--accent-deep); }
+
+.setup-note {
+  font-size: 0.74rem;
+  color: var(--muted);
+  text-align: center;
+  margin-top: 14px;
+  line-height: 1.5;
+}
+.setup-note a { color: var(--accent); text-decoration: none; }
+
+.setup-error {
+  background: #fdeaea;
+  border: 1px solid #f5c5c5;
+  border-radius: 10px;
+  padding: 10px 14px;
+  font-size: 0.82rem;
+  color: var(--danger);
+  margin-top: 12px;
+  display: none;
+}
+.setup-error.show { display: block; }
+
+/* ========================
+   LOGIN SCREEN
+======================== */
+.login-logo {
+  text-align: center;
+  margin-bottom: 28px;
+}
+.login-logo .brand {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 2.2rem;
+  color: var(--accent);
+  line-height: 1;
+}
+.login-logo .brand em { font-style: italic; }
+.login-logo .sub {
+  font-size: 0.72rem;
+  color: var(--muted);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  margin-top: 4px;
+}
+
+.pin-dots {
+  display: flex;
+  justify-content: center;
+  gap: 18px;
+  margin-bottom: 32px;
+}
+.pin-dot {
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  border: 2px solid var(--accent-soft);
+  transition: all 0.18s cubic-bezier(.34,1.6,.64,1);
+}
+.pin-dot.filled {
+  background: var(--accent);
+  border-color: var(--accent);
+  transform: scale(1.15);
+}
+
+.numpad {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  max-width: 230px;
+  margin: 0 auto;
+}
+.num-btn {
+  aspect-ratio: 1;
+  border: none;
+  background: var(--bg);
+  border-radius: 50%;
+  font-family: 'Nunito', sans-serif;
+  font-size: 1.35rem;
+  font-weight: 600;
+  color: var(--text);
+  cursor: pointer;
+  transition: all 0.15s;
+  border: 1.5px solid transparent;
+}
+.num-btn:active {
+  background: var(--accent-pale);
+  border-color: var(--accent-soft);
+  transform: scale(0.9);
+}
+.num-btn.del { font-size: 1.1rem; color: var(--muted); }
+
+.pin-error {
+  text-align: center;
+  color: var(--danger);
+  font-size: 0.8rem;
+  margin-top: 18px;
+  opacity: 0;
+  transition: opacity 0.25s;
+  font-weight: 600;
+}
+.pin-error.show { opacity: 1; }
+
+@keyframes shake {
+  0%,100% { transform: translateX(0); }
+  20%     { transform: translateX(-9px); }
+  40%     { transform: translateX(9px); }
+  60%     { transform: translateX(-6px); }
+  80%     { transform: translateX(6px); }
+}
+
+/* ========================
+   SENDER SCREEN
+======================== */
+.sender-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 24px;
+}
+.sender-title {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 1.55rem;
+  color: var(--accent);
+  line-height: 1;
+}
+.sender-title small {
+  display: block;
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--muted);
+  margin-top: 2px;
+}
+.online-pill {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--bg);
+  border: 1.5px solid var(--border);
+  border-radius: 20px;
+  padding: 5px 12px;
+  font-size: 0.72rem;
+  color: var(--muted);
+}
+.dot-green {
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: var(--success);
+  animation: blink 2s infinite;
+}
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.2} }
+
+.toast {
+  border-radius: 14px;
+  padding: 13px 16px;
+  font-size: 0.88rem;
+  font-weight: 600;
+  margin-bottom: 18px;
+  text-align: center;
+  opacity: 0;
+  transform: translateY(6px);
+  transition: all 0.3s;
+  pointer-events: none;
+}
+.toast.show { opacity: 1; transform: translateY(0); }
+.toast.success { background: #e8f7ef; color: var(--success); border: 1.5px solid #b8e6cf; }
+.toast.error   { background: #fdeaea; color: var(--danger); border: 1.5px solid #f5c5c5; }
+
+.signal-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 13px;
+  margin-bottom: 20px;
+}
+.signal-btn {
+  background: var(--card);
+  border: 1.5px solid var(--border);
+  border-radius: 18px;
+  padding: 20px 14px 18px;
+  cursor: pointer;
+  text-align: center;
+  transition: all 0.18s;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  position: relative;
+  overflow: hidden;
+}
+.signal-btn::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--accent-pale);
+  opacity: 0;
+  transition: opacity 0.2s;
+  border-radius: inherit;
+}
+.signal-btn:active {
+  transform: scale(0.94);
+  border-color: var(--accent-soft);
+}
+.signal-btn:active::after { opacity: 1; }
+.signal-btn .s-emoji { font-size: 2rem; line-height: 1; }
+.signal-btn .s-label {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--text);
+}
+.signal-btn .s-hint {
+  font-size: 0.7rem;
+  color: var(--muted);
+  font-style: italic;
+}
+
+.btn-ghost {
+  display: block;
+  width: 100%;
+  background: none;
+  border: 1.5px solid var(--border);
+  border-radius: 12px;
+  padding: 10px;
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.8rem;
+  color: var(--muted);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.btn-ghost:hover { border-color: var(--accent-soft); color: var(--accent); }
+
+/* ========================
+   RECEIVER SCREEN
+======================== */
+.receiver-body { text-align: center; padding: 10px 0; }
+
+.pulse-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 148px;
+  height: 148px;
+  margin: 0 auto 28px;
+}
+.pulse-circle {
+  width: 130px;
+  height: 130px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #f9d3c4 0%, #e8a890 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 3.2rem;
+  position: relative;
+  z-index: 2;
+  transition: transform 0.3s;
+}
+.pulse-ring-1, .pulse-ring-2 {
+  position: absolute;
+  inset: -4px;
+  border-radius: 50%;
+  border: 2px solid var(--accent-soft);
+  opacity: 0;
+}
+
+.recv-pinging .pulse-circle { transform: scale(1.05); }
+.recv-pinging .pulse-ring-1 { animation: ring 1.4s ease-out 0s infinite; }
+.recv-pinging .pulse-ring-2 { animation: ring 1.4s ease-out 0.5s infinite; }
+
+@keyframes ring {
+  0%   { inset: -4px; opacity: 0.7; }
+  100% { inset: -52px; opacity: 0; }
+}
+
+.recv-message {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--accent);
+  margin-bottom: 6px;
+  min-height: 28px;
+  transition: all 0.3s;
+}
+.recv-label {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 1.35rem;
+  color: var(--muted);
+  margin-bottom: 6px;
+}
+.recv-when {
+  font-size: 0.75rem;
+  color: #bfa9a3;
+  margin-bottom: 28px;
+}
+
+.btn-read {
+  background: var(--accent);
+  color: white;
+  border: none;
+  border-radius: 14px;
+  padding: 13px 36px;
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.95rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(6px);
+}
+.btn-read.visible { opacity: 1; pointer-events: auto; transform: translateY(0); transition: all 0.3s; }
+.btn-read:active { transform: scale(0.95); background: var(--accent-deep); }
+
+.live-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  background: var(--bg);
+  border: 1.5px solid var(--border);
+  border-radius: 20px;
+  padding: 7px 16px;
+  font-size: 0.75rem;
+  color: var(--muted);
+  margin-top: 26px;
+  font-weight: 600;
+}
+
+.recv-history {
+  margin-top: 22px;
+  text-align: left;
+  background: var(--bg);
+  border-radius: 14px;
+  padding: 14px 16px;
+}
+.recv-history-title {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--muted);
+  margin-bottom: 10px;
+}
+.history-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.82rem;
+  color: var(--text);
+}
+.history-item:last-child { border-bottom: none; }
+.history-item .h-emoji { font-size: 1.1rem; }
+.history-item .h-msg { flex: 1; font-weight: 600; }
+.history-item .h-time { color: var(--muted); font-size: 0.72rem; }
+
+/* ========================
+   RESET LINK (hidden tap)
+======================== */
+.reset-touch {
+  position: fixed;
+  bottom: 10px;
+  right: 10px;
+  width: 40px;
+  height: 40px;
+  opacity: 0;
+  cursor: pointer;
+}
+</style>
+</head>
+<body>
+
+<!-- ====== SETUP SCREEN ====== -->
+<div id="screen-setup" class="screen active">
+  <div class="card">
+    <div class="setup-logo">Study<em>Bell</em> 🔔</div>
+    <div class="setup-tagline">One-Time Setup</div>
+
+    <div class="field">
+      <label>Firebase API Key</label>
+      <input type="text" id="cfg-apiKey" placeholder="AIzaSy...">
+    </div>
+    <div class="field">
+      <label>Firebase Project ID</label>
+      <input type="text" id="cfg-projectId" placeholder="my-project-id">
+    </div>
+    <div class="field-row">
+      <div class="field">
+        <label>Your PIN (Sender)</label>
+        <input type="password" id="cfg-pin1" placeholder="e.g. 1234" maxlength="4" inputmode="numeric">
+      </div>
+      <div class="field">
+        <label>Her PIN (Receiver)</label>
+        <input type="password" id="cfg-pin2" placeholder="e.g. 5678" maxlength="4" inputmode="numeric">
+      </div>
+    </div>
+
+    <button class="btn-primary" onclick="saveConfig()">Save &amp; Start →</button>
+
+    <div class="setup-error" id="setup-error"></div>
+
+    <p class="setup-note">
+      Your config is saved only on <em>this device</em>.<br>
+      Get your Firebase config from
+      <a href="https://console.firebase.google.com" target="_blank">console.firebase.google.com</a>
+    </p>
+  </div>
+</div>
+
+<!-- ====== LOGIN SCREEN ====== -->
+<div id="screen-login" class="screen">
+  <div class="card">
+    <div class="login-logo">
+      <div class="brand">Study<em>Bell</em></div>
+      <div class="sub">Focus together ✦</div>
+    </div>
+
+    <div class="pin-dots">
+      <div class="pin-dot" id="dot-0"></div>
+      <div class="pin-dot" id="dot-1"></div>
+      <div class="pin-dot" id="dot-2"></div>
+      <div class="pin-dot" id="dot-3"></div>
+    </div>
+
+    <div class="numpad">
+      <button class="num-btn" onclick="numPress(1)">1</button>
+      <button class="num-btn" onclick="numPress(2)">2</button>
+      <button class="num-btn" onclick="numPress(3)">3</button>
+      <button class="num-btn" onclick="numPress(4)">4</button>
+      <button class="num-btn" onclick="numPress(5)">5</button>
+      <button class="num-btn" onclick="numPress(6)">6</button>
+      <button class="num-btn" onclick="numPress(7)">7</button>
+      <button class="num-btn" onclick="numPress(8)">8</button>
+      <button class="num-btn" onclick="numPress(9)">9</button>
+      <button class="num-btn" onclick="numPress('clr')">✕</button>
+      <button class="num-btn" onclick="numPress(0)">0</button>
+      <button class="num-btn del" onclick="numPress('del')">⌫</button>
+    </div>
+
+    <div class="pin-error" id="pin-error">Wrong PIN, try again</div>
+  </div>
+</div>
+
+<!-- ====== SENDER SCREEN ====== -->
+<div id="screen-sender" class="screen">
+  <div class="card">
+    <div class="sender-top">
+      <div class="sender-title">
+        StudyBell 🔔
+        <small>Send a reminder</small>
+      </div>
+      <div class="online-pill">
+        <span class="dot-green"></span> Live
+      </div>
+    </div>
+
+    <div class="toast" id="send-toast"></div>
+
+    <div class="signal-grid">
+      <button class="signal-btn" onclick="sendSignal('study')">
+        <span class="s-emoji">📚</span>
+        <span class="s-label">Study Time</span>
+        <span class="s-hint">I miss you 🥺</span>
+      </button>
+      <button class="signal-btn" onclick="sendSignal('break')">
+        <span class="s-emoji">☕</span>
+        <span class="s-label">Take a Break</span>
+        <span class="s-hint">Want to talk</span>
+      </button>
+      <button class="signal-btn" onclick="sendSignal('thinking')">
+        <span class="s-emoji">💭</span>
+        <span class="s-label">Focus Check</span>
+        <span class="s-hint">Thinking of you</span>
+      </button>
+      <button class="signal-btn" onclick="sendSignal('night')">
+        <span class="s-emoji">🌙</span>
+        <span class="s-label">Good Night</span>
+        <span class="s-hint">Sleep well ♥</span>
+      </button>
+    </div>
+
+    <button class="btn-ghost" onclick="logout()">← Back to lock screen</button>
+  </div>
+</div>
+
+<!-- ====== RECEIVER SCREEN ====== -->
+<div id="screen-receiver" class="screen">
+  <div class="card">
+    <div class="receiver-body">
+      <div class="pulse-wrap" id="pulse-wrap">
+        <div class="pulse-ring-1"></div>
+        <div class="pulse-ring-2"></div>
+        <div class="pulse-circle" id="recv-emoji">📖</div>
+      </div>
+
+      <div class="recv-message" id="recv-msg"></div>
+      <div class="recv-label" id="recv-label">Waiting for a signal...</div>
+      <div class="recv-when" id="recv-when">You'll feel it when it arrives 🌸</div>
+
+      <button class="btn-read" id="btn-read" onclick="markRead()">✓ Got it!</button>
+
+      <div class="live-badge">
+        <span class="dot-green"></span> Connected &amp; listening
+      </div>
+
+      <div class="recv-history" id="recv-history" style="display:none">
+        <div class="recv-history-title">Recent signals</div>
+        <div id="history-list"></div>
+      </div>
+    </div>
+
+    <br>
+    <button class="btn-ghost" onclick="logout()">← Back to lock screen</button>
+  </div>
+</div>
+
+<!-- Secret reset touch target (bottom-right corner) -->
+<div class="reset-touch" id="reset-touch" title=""></div>
+
+<!-- Firebase SDKs -->
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+
+<script>
+// ============================================================
+//  SIGNALS DATA
+// ============================================================
+const SIGNALS = {
+  study: {
+    emoji: '📚',
+    label: 'Study Time!',
+    msg:   'I miss you so much 🥺',
+    vibe:  [250, 100, 250, 100, 400]
+  },
+  break: {
+    emoji: '☕',
+    label: 'Take a Break!',
+    msg:   'I want to talk to you ☕',
+    vibe:  [600, 200, 600]
+  },
+  thinking: {
+    emoji: '💭',
+    label: 'Focus Check!',
+    msg:   'Just thinking of you 💭',
+    vibe:  [150, 80, 150, 80, 150]
+  },
+  night: {
+    emoji: '🌙',
+    label: 'Good Night!',
+    msg:   'Miss you. Sleep well, love ♥',
+    vibe:  [200, 100, 200, 100, 800]
+  }
+};
+
+// ============================================================
+//  STATE
+// ============================================================
+let db          = null;
+let unsubscribe = null;
+let pinBuffer   = '';
+let CONFIG      = null;
+let signalHistory = [];
+
+// ============================================================
+//  INIT
+// ============================================================
+window.addEventListener('load', () => {
+  const saved = localStorage.getItem('studybell_cfg');
+  if (saved) {
+    try {
+      CONFIG = JSON.parse(saved);
+      initFirebase();
+      showScreen('login');
+    } catch(e) {
+      showScreen('setup');
+    }
+  } else {
+    showScreen('setup');
+  }
+
+  // Long-press bottom-right corner → reset config
+  let resetTimer;
+  const rt = document.getElementById('reset-touch');
+  rt.addEventListener('touchstart', () => { resetTimer = setTimeout(resetConfig, 3000); });
+  rt.addEventListener('touchend',   () => clearTimeout(resetTimer));
+});
+
+function initFirebase() {
+  try {
+    if (!firebase.apps.length) {
+      firebase.initializeApp({
+        apiKey:     CONFIG.apiKey,
+        projectId:  CONFIG.projectId,
+        authDomain: CONFIG.projectId + '.firebaseapp.com'
+      });
+    }
+    db = firebase.firestore();
+  } catch(e) {
+    console.error('Firebase init:', e);
+  }
+}
+
+// ============================================================
+//  SETUP
+// ============================================================
+function saveConfig() {
+  const apiKey    = v('cfg-apiKey').trim();
+  const projectId = v('cfg-projectId').trim();
+  const pin1      = v('cfg-pin1').trim();
+  const pin2      = v('cfg-pin2').trim();
+  const errEl     = document.getElementById('setup-error');
+
+  if (!apiKey || !projectId || !pin1 || !pin2) {
+    showSetupError('Please fill in all fields.'); return;
+  }
+  if (!/^\d{4}$/.test(pin1) || !/^\d{4}$/.test(pin2)) {
+    showSetupError('PINs must be exactly 4 digits.'); return;
+  }
+  if (pin1 === pin2) {
+    showSetupError('Your PIN and her PIN must be different.'); return;
+  }
+
+  CONFIG = { apiKey, projectId, pin1, pin2 };
+  localStorage.setItem('studybell_cfg', JSON.stringify(CONFIG));
+  errEl.classList.remove('show');
+  initFirebase();
+  showScreen('login');
+}
+
+function showSetupError(msg) {
+  const el = document.getElementById('setup-error');
+  el.textContent = msg;
+  el.classList.add('show');
+}
+
+function resetConfig() {
+  if (confirm('Reset all settings? You will need to enter Firebase config again.')) {
+    localStorage.removeItem('studybell_cfg');
+    if (unsubscribe) unsubscribe();
+    db = null;
+    CONFIG = null;
+    showScreen('setup');
+  }
+}
+
+// ============================================================
+//  PIN / LOGIN
+// ============================================================
+function numPress(val) {
+  if (val === 'clr') { pinBuffer = ''; updateDots(); return; }
+  if (val === 'del') { pinBuffer = pinBuffer.slice(0, -1); updateDots(); return; }
+  if (pinBuffer.length >= 4) return;
+  pinBuffer += String(val);
+  updateDots();
+  if (pinBuffer.length === 4) setTimeout(checkPin, 160);
+}
+
+function updateDots() {
+  for (let i = 0; i < 4; i++) {
+    document.getElementById('dot-' + i).classList.toggle('filled', i < pinBuffer.length);
+  }
+}
+
+function checkPin() {
+  const errEl = document.getElementById('pin-error');
+  if (pinBuffer === CONFIG.pin1) {
+    pinBuffer = ''; updateDots();
+    errEl.classList.remove('show');
+    showScreen('sender');
+  } else if (pinBuffer === CONFIG.pin2) {
+    pinBuffer = ''; updateDots();
+    errEl.classList.remove('show');
+    startReceiver();
+    showScreen('receiver');
+  } else {
+    errEl.classList.add('show');
+    const card = document.querySelector('#screen-login .card');
+    card.style.animation = 'none';
+    requestAnimationFrame(() => {
+      card.style.animation = 'shake 0.45s ease';
+    });
+    setTimeout(() => { pinBuffer = ''; updateDots(); }, 300);
+  }
+}
+
+// ============================================================
+//  SENDER
+// ============================================================
+async function sendSignal(type) {
+  if (!db) { showToast('Not connected!', 'error'); return; }
+  const sig = SIGNALS[type];
+  try {
+    await db.collection('studybell').doc('signal').set({
+      type,
+      emoji: sig.emoji,
+      label: sig.label,
+      msg:   sig.msg,
+      timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+      read: false
+    });
+    showToast('✓ Signal sent — she'll feel it!', 'success');
+  } catch(e) {
+    showToast('❌ ' + e.message, 'error');
+  }
+}
+
+function showToast(msg, type) {
+  const t = document.getElementById('send-toast');
+  t.textContent = msg;
+  t.className = 'toast show ' + type;
+  setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+// ============================================================
+//  RECEIVER
+// ============================================================
+function startReceiver() {
+  if (!db) return;
+
+  // Request notification permission
+  if ('Notification' in window) Notification.requestPermission();
+
+  // Keep screen awake
+  if ('wakeLock' in navigator) {
+    navigator.wakeLock.request('screen').catch(() => {});
+  }
+
+  let lastTs = null;
+
+  unsubscribe = db.collection('studybell').doc('signal')
+    .onSnapshot(doc => {
+      if (!doc.exists) return;
+      const data = doc.data();
+      if (!data || !data.timestamp) return;
+      if (data.read) {
+        // Signal was marked as read by receiver
+        return;
+      }
+
+      const ts = data.timestamp?.toMillis?.() || 0;
+      if (lastTs !== null && ts <= lastTs) return;
+      lastTs = ts;
+
+      onSignalReceived(data);
+    }, err => console.error('Listener error:', err));
+}
+
+function onSignalReceived(data) {
+  const sig = SIGNALS[data.type] || {};
+
+  // Vibrate (Android Chrome)
+  if (navigator.vibrate) {
+    navigator.vibrate(sig.vibe || [400, 200, 400, 200, 400]);
+  }
+
+  // Update UI
+  document.getElementById('recv-emoji').textContent  = data.emoji;
+  document.getElementById('recv-msg').textContent    = data.msg;
+  document.getElementById('recv-label').textContent  = data.label;
+  document.getElementById('recv-when').textContent   = 'Just now 💌';
+  document.getElementById('pulse-wrap').classList.add('recv-pinging');
+  document.getElementById('btn-read').classList.add('visible');
+
+  // Add to history
+  addToHistory(data);
+
+  // System notification if page is hidden
+  if (document.hidden && Notification.permission === 'granted') {
+    try {
+      new Notification('📚 ' + data.label, {
+        body: data.msg,
+        silent: false
+      });
+    } catch(e) {}
+  }
+}
+
+async function markRead() {
+  if (db) {
+    try {
+      await db.collection('studybell').doc('signal').update({ read: true });
+    } catch(e) {}
+  }
+  document.getElementById('pulse-wrap').classList.remove('recv-pinging');
+  document.getElementById('recv-emoji').textContent  = '📖';
+  document.getElementById('recv-msg').textContent    = '';
+  document.getElementById('recv-label').textContent  = 'Waiting for a signal...';
+  document.getElementById('recv-when').textContent   = 'You\'ll feel it when it arrives 🌸';
+  document.getElementById('btn-read').classList.remove('visible');
+}
+
+function addToHistory(data) {
+  const now = new Date();
+  const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+  signalHistory.unshift({ emoji: data.emoji, msg: data.msg, time: timeStr });
+  if (signalHistory.length > 5) signalHistory.pop();
+
+  const listEl = document.getElementById('history-list');
+  listEl.innerHTML = signalHistory.map(h =>
+    `<div class="history-item">
+      <span class="h-emoji">${h.emoji}</span>
+      <span class="h-msg">${h.msg}</span>
+      <span class="h-time">${h.time}</span>
+    </div>`
+  ).join('');
+
+  document.getElementById('recv-history').style.display = 'block';
+}
+
+// ============================================================
+//  UTILS
+// ============================================================
+function showScreen(name) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById('screen-' + name).classList.add('active');
+}
+
+function logout() {
+  if (unsubscribe) { unsubscribe(); unsubscribe = null; }
+  pinBuffer = '';
+  updateDots();
+  document.getElementById('pin-error').classList.remove('show');
+  showScreen('login');
+}
+
+function v(id) { return document.getElementById(id).value; }
+</script>
+
+<script>
+// Register service worker for PWA / offline support
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js')
+      .then(r => console.log('SW registered'))
+      .catch(e => console.warn('SW failed:', e));
+  });
+}
+</script>
+
+<style>
+@keyframes shake {
+  0%,100% { transform: translateX(0); }
+  20%     { transform: translateX(-10px); }
+  40%     { transform: translateX(10px); }
+  60%     { transform: translateX(-7px); }
+  80%     { transform: translateX(7px); }
+}
+</style>
+</body>
+</html>
