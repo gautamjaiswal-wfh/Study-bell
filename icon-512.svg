@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <!-- Background circle -->
+  <circle cx="256" cy="256" r="256" fill="#fdf6f0"/>
+  <!-- Soft inner circle -->
+  <circle cx="256" cy="256" r="214" fill="#fdeee8"/>
+
+  <!-- Bell body -->
+  <path d="M256 100
+    C192 100 144 152 144 216
+    L144 312
+    L112 344 L112 360 L400 360 L400 344 L368 312
+    L368 216
+    C368 152 320 100 256 100Z"
+    fill="#c97b61"/>
+
+  <!-- Bell clapper -->
+  <circle cx="256" cy="394" r="28" fill="#c97b61"/>
+
+  <!-- Shine -->
+  <ellipse cx="208" cy="178" rx="22" ry="38" fill="white" opacity="0.2" transform="rotate(-20 208 178)"/>
+
+  <!-- Bell top knob -->
+  <rect x="234" y="78" width="44" height="30" rx="22" fill="#a85f47"/>
+</svg>
