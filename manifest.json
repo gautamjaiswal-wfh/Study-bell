@@ -2,7 +2,7 @@
   "name": "StudyBell — Focus Together",
   "short_name": "StudyBell",
   "description": "A study reminder and focus sync app.",
-  "start_url": "./index.html",
+"start_url": "/Study-bell/sender.html"
   "scope": "./",
   "display": "standalone",
   "orientation": "portrait",
