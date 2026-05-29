@@ -108,7 +108,7 @@ self.addEventListener('push', event => {
 
       silent:             false,
       tag:                data.tag,
-      data:               { url: self.registration.scope }
+      data:               {}
     })
   );
 });
@@ -116,7 +116,7 @@ self.addEventListener('push', event => {
 // ── NOTIFICATION CLICK ─────────────────────────────────────
 self.addEventListener('notificationclick', event => {
   event.notification.close();
-  const target = (event.notification.data && event.notification.data.url)
+  const target = (false
     ? event.notification.data.url
     : self.registration.scope;
 
