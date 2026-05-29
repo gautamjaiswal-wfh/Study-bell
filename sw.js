@@ -1,28 +1,24 @@
 // ============================================================
-//  StudyBell Service Worker
-//  - Caches app shell for offline use
-//  - Handles Web Push notifications (VAPID)
-//  - Fixed: icon paths now .png (was .svg — bug fix)
+//  StudyBell Service Worker v4
+//  - Strong vibration patterns
+//  - requireInteraction so notification stays on screen
+//  - Fixed icon paths (.png)
 // ============================================================
 
-const CACHE_NAME = 'studybell-v3';
+const CACHE_NAME = 'studybell-v4';
 
 const ASSETS = [
   './',
-  './index.html',
+  './sender.html',
+  './receiver.html',
   './manifest.json',
-  './icon-192.png',       // ✅ Fixed (was .svg)
-  './icon-512.png',       // ✅ Fixed (was .svg)
+  './icon-192.png',
+  './icon-512.png',
   './icon-192-maskable.png',
-  './icon-512-maskable.png',
-  'https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=Nunito:wght@300;400;500;600;700&display=swap',
-  'https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js',
-  'https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js'
+  './icon-512-maskable.png'
 ];
 
-// ============================================================
-//  INSTALL — pre-cache app shell
-// ============================================================
+// ── INSTALL ────────────────────────────────────────────────
 self.addEventListener('install', event => {
   event.waitUntil(
     caches.open(CACHE_NAME)
@@ -32,140 +28,115 @@ self.addEventListener('install', event => {
   );
 });
 
-// ============================================================
-//  ACTIVATE — remove old caches
-// ============================================================
+// ── ACTIVATE ───────────────────────────────────────────────
 self.addEventListener('activate', event => {
   event.waitUntil(
-    caches.keys().then(keys =>
-      Promise.all(
-        keys
-          .filter(k => k !== CACHE_NAME)
-          .map(k => caches.delete(k))
-      )
-    ).then(() => self.clients.claim())
+    caches.keys()
+      .then(keys => Promise.all(keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k))))
+      .then(() => self.clients.claim())
   );
 });
 
-// ============================================================
-//  FETCH — cache-first for app shell, network-first for Firebase
-// ============================================================
+// ── FETCH ──────────────────────────────────────────────────
 self.addEventListener('fetch', event => {
   const url = event.request.url;
 
-  // Always go network for Firestore API calls
+  // Always network for Firebase / push server
   if (url.includes('firestore.googleapis.com') ||
       url.includes('firebase') ||
-      url.includes('/send-push') ||
-      url.includes('/vapid-public-key')) {
+      url.includes('onrender.com')) {
     event.respondWith(
       fetch(event.request).catch(() => new Response('', { status: 503 }))
     );
     return;
   }
 
-  // Cache-first for everything else (app shell, fonts, icons)
+  // Cache-first for app shell
   event.respondWith(
     caches.match(event.request).then(cached => {
       if (cached) return cached;
       return fetch(event.request).then(resp => {
-        // Only cache same-origin or known CDN responses
-        if (resp && resp.status === 200 &&
-           (event.request.url.startsWith(self.location.origin) ||
-            event.request.url.includes('gstatic.com') ||
-            event.request.url.includes('googleapis.com'))) {
-          const clone = resp.clone();
-          caches.open(CACHE_NAME).then(c => c.put(event.request, clone));
+        if (resp && resp.status === 200) {
+          caches.open(CACHE_NAME).then(c => c.put(event.request, resp.clone()));
         }
         return resp;
-      }).catch(() => caches.match('./index.html'));
+      }).catch(() => caches.match('./receiver.html'));
     })
   );
 });
 
-// ============================================================
-//  PUSH — receive and show rich notification
-// ============================================================
+// ── PUSH ───────────────────────────────────────────────────
+// Strong vibration: long-short-long pattern repeated twice
+// requireInteraction = true → notification stays until she taps it
+// renotify = true → always re-vibrate even if same tag
 self.addEventListener('push', event => {
-  let payload = {
+
+  let data = {
     title:   '🔔 StudyBell',
-    body:    'You have a new signal!',
-    icon:    './icon-192.png',    // ✅ Fixed (was .svg)
-    badge:   './icon-192.png',    // ✅ Fixed (was .svg)
-    vibrate: [200, 100, 200],
-    tag:     'studybell-signal',
-    renotify: true,
-    requireInteraction: true,
-    data:    { url: self.registration.scope }
+    body:    'He sent you a signal!',
+    icon:    './icon-192.png',
+    badge:   './icon-192.png',
+    vibrate: [500,200,500,200,800,200,800], // strong default
+    tag:     'studybell-signal'
   };
 
   if (event.data) {
     try {
-      const incoming = event.data.json();
-      payload = {
-        ...payload,
-        title:   incoming.title   || payload.title,
-        body:    incoming.body    || payload.body,
-        icon:    incoming.icon    || payload.icon,
-        badge:   incoming.badge   || payload.badge,
-        vibrate: incoming.vibrate || payload.vibrate,
-        tag:     incoming.tag     || payload.tag
-      };
+      const inc = event.data.json();
+      data.title   = inc.title   || data.title;
+      data.body    = inc.body    || data.body;
+      data.icon    = inc.icon    || data.icon;
+      data.badge   = inc.badge   || data.badge;
+      data.vibrate = inc.vibrate || data.vibrate;
+      data.tag     = inc.tag     || data.tag;
     } catch(e) {
-      // If JSON parse fails, try plain text
-      payload.body = event.data.text() || payload.body;
+      data.body = event.data.text() || data.body;
     }
   }
 
   event.waitUntil(
-    self.registration.showNotification(payload.title, {
-      body:               payload.body,
-      icon:               payload.icon,
-      badge:              payload.badge,
-      vibrate:            payload.vibrate,
-      tag:                payload.tag,
-      renotify:           payload.renotify,
-      requireInteraction: payload.requireInteraction,
+    self.registration.showNotification(data.title, {
+      body:               data.body,
+      icon:               data.icon,
+      badge:              data.badge,
+
+      // ── The 3 most important lines for Android ──────────
+      vibrate:            data.vibrate,
+      requireInteraction: true,   // stays on screen until tapped
+      renotify:           true,   // re-vibrates every time
+      // ────────────────────────────────────────────────────
+
       silent:             false,
-      data:               payload.data
+      tag:                data.tag,
+      data:               { url: self.registration.scope }
     })
   );
 });
 
-// ============================================================
-//  NOTIFICATION CLICK — open / focus app
-// ============================================================
+// ── NOTIFICATION CLICK ─────────────────────────────────────
 self.addEventListener('notificationclick', event => {
   event.notification.close();
-  const targetUrl = (event.notification.data && event.notification.data.url)
+  const target = (event.notification.data && event.notification.data.url)
     ? event.notification.data.url
     : self.registration.scope;
 
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then(list => {
-      // If app already open, focus it
-      for (const client of list) {
-        if (client.url.startsWith(self.registration.scope) && 'focus' in client) {
-          return client.focus();
-        }
+      for (const c of list) {
+        if (c.url.startsWith(self.registration.scope) && 'focus' in c) return c.focus();
       }
-      // Otherwise open a new window
-      if (clients.openWindow) return clients.openWindow(targetUrl);
+      if (clients.openWindow) return clients.openWindow(target);
     })
   );
 });
 
-// ============================================================
-//  PUSH SUBSCRIPTION CHANGE — re-register if subscription expires
-// ============================================================
+// ── SUBSCRIPTION CHANGE ────────────────────────────────────
 self.addEventListener('pushsubscriptionchange', event => {
-  // Tell the app to re-subscribe; the page handles re-saving to Firestore
   event.waitUntil(
     self.registration.pushManager.subscribe({
       userVisibleOnly: true,
       applicationServerKey: event.oldSubscription?.options?.applicationServerKey
     }).then(sub => {
-      // Broadcast new subscription to all open clients
       return self.clients.matchAll({ type: 'window' }).then(clients => {
         clients.forEach(c => c.postMessage({
           type: 'PUSH_SUBSCRIPTION_CHANGED',
