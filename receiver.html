@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>StudyBell — For You 🔔</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#c97b61">
+<link rel="apple-touch-icon" href="./icon-192.png">
+<link rel="icon" type="image/png" href="./icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=Nunito:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:#fdf6f0; --card:#fff9f5; --accent:#c97b61; --accent-deep:#a85f47;
+  --accent-soft:#f5c4b3; --accent-pale:#fdeee8; --text:#3a2520;
+  --muted:#967d76; --border:#efddd6; --success:#6aab8a; --danger:#c05050;
+  --radius:22px;
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+html,body{height:100%;}
+body {
+  font-family:'Nunito',sans-serif;
+  background:var(--bg);
+  background-image:radial-gradient(circle at 20% 20%,#fceae2 0%,transparent 50%),
+                   radial-gradient(circle at 80% 80%,#f8e8e0 0%,transparent 50%);
+  color:var(--text);
+  min-height:100svh;
+  display:flex;align-items:center;justify-content:center;
+  padding:20px 20px 36px;
+}
+.screen{display:none;width:100%;max-width:380px;animation:fadeUp .3s ease;}
+.screen.active{display:block;}
+@keyframes fadeUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
+.card{background:var(--card);border-radius:var(--radius);padding:36px 28px;box-shadow:0 4px 24px rgba(180,100,80,.10),0 1px 3px rgba(180,100,80,.06);border:1px solid var(--border);}
+
+/* ── LOGIN ── */
+.login-logo{text-align:center;margin-bottom:28px;}
+.brand{font-family:'Cormorant Garamond',serif;font-size:2.2rem;color:var(--accent);line-height:1;}
+.brand em{font-style:italic;}
+.sub{font-size:.72rem;color:var(--muted);letter-spacing:.14em;text-transform:uppercase;margin-top:4px;}
+.pin-dots{display:flex;justify-content:center;gap:18px;margin-bottom:32px;}
+.pin-dot{width:13px;height:13px;border-radius:50%;border:2px solid var(--accent-soft);transition:all .18s cubic-bezier(.34,1.6,.64,1);}
+.pin-dot.filled{background:var(--accent);border-color:var(--accent);transform:scale(1.15);}
+.numpad{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;max-width:230px;margin:0 auto;}
+.num-btn{aspect-ratio:1;border:none;background:var(--bg);border-radius:50%;font-family:'Nunito',sans-serif;font-size:1.35rem;font-weight:600;color:var(--text);cursor:pointer;transition:all .15s;border:1.5px solid transparent;}
+.num-btn:active{background:var(--accent-pale);border-color:var(--accent-soft);transform:scale(.9);}
+.num-btn.del{font-size:1.1rem;color:var(--muted);}
+.pin-error{text-align:center;color:var(--danger);font-size:.8rem;margin-top:18px;opacity:0;transition:opacity .25s;font-weight:600;}
+.pin-error.show{opacity:1;}
+@keyframes shake{0%,100%{transform:translateX(0)}20%{transform:translateX(-9px)}40%{transform:translateX(9px)}60%{transform:translateX(-6px)}80%{transform:translateX(6px)}}
+
+/* ── PUSH SETUP STEP ── */
+.setup-step{text-align:center;padding:10px 0 6px;}
+.setup-icon{font-size:3.5rem;margin-bottom:16px;}
+.setup-title{font-family:'Cormorant Garamond',serif;font-size:1.6rem;color:var(--accent);margin-bottom:8px;}
+.setup-desc{font-size:.85rem;color:var(--muted);line-height:1.6;margin-bottom:28px;}
+.btn-enable{width:100%;background:var(--accent);color:#fff;border:none;border-radius:14px;padding:15px;font-family:'Nunito',sans-serif;font-size:1rem;font-weight:700;cursor:pointer;transition:all .2s;letter-spacing:.02em;}
+.btn-enable:active{background:var(--accent-deep);transform:scale(.96);}
+.btn-enable:disabled{opacity:.6;pointer-events:none;}
+.setup-status{margin-top:16px;font-size:.82rem;color:var(--muted);min-height:20px;line-height:1.5;}
+.setup-status.ok   {color:var(--success);font-weight:700;}
+.setup-status.fail {color:var(--danger);}
+.skip-link{display:block;margin-top:14px;font-size:.75rem;color:var(--muted);text-align:center;cursor:pointer;text-decoration:underline;}
+
+/* ── RECEIVER ── */
+.receiver-body{text-align:center;padding:8px 0;}
+.pulse-wrap{position:relative;display:flex;align-items:center;justify-content:center;width:148px;height:148px;margin:0 auto 24px;}
+.pulse-circle{width:130px;height:130px;border-radius:50%;background:linear-gradient(135deg,#f9d3c4 0%,#e8a890 100%);display:flex;align-items:center;justify-content:center;font-size:3.2rem;position:relative;z-index:2;transition:transform .3s;}
+.pulse-ring-1,.pulse-ring-2{position:absolute;inset:-4px;border-radius:50%;border:2px solid var(--accent-soft);opacity:0;}
+.pinging .pulse-circle{transform:scale(1.05);}
+.pinging .pulse-ring-1{animation:ring 1.4s ease-out 0s infinite;}
+.pinging .pulse-ring-2{animation:ring 1.4s ease-out .5s infinite;}
+@keyframes ring{0%{inset:-4px;opacity:.7}100%{inset:-52px;opacity:0}}
+.recv-msg  {font-size:1.15rem;font-weight:700;color:var(--accent);margin-bottom:6px;min-height:28px;}
+.recv-label{font-family:'Cormorant Garamond',serif;font-size:1.35rem;color:var(--muted);margin-bottom:6px;}
+.recv-when {font-size:.75rem;color:#bfa9a3;margin-bottom:28px;}
+.btn-read  {background:var(--accent);color:#fff;border:none;border-radius:14px;padding:13px 36px;font-family:'Nunito',sans-serif;font-size:.95rem;font-weight:700;cursor:pointer;opacity:0;pointer-events:none;transform:translateY(6px);transition:all .3s;}
+.btn-read.visible{opacity:1;pointer-events:auto;transform:translateY(0);}
+.btn-read:active{transform:scale(.95);background:var(--accent-deep);}
+.live-badge{display:inline-flex;align-items:center;gap:7px;background:var(--bg);border:1.5px solid var(--border);border-radius:20px;padding:7px 16px;font-size:.75rem;color:var(--muted);margin-top:24px;font-weight:600;}
+.dot-green{width:7px;height:7px;border-radius:50%;background:var(--success);animation:blink 2s infinite;}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.2}}
+
+/* notification re-enable banner */
+.notif-bar{background:var(--accent-pale);border:1.5px solid var(--accent-soft);border-radius:13px;padding:11px 14px;font-size:.78rem;color:var(--accent-deep);margin-bottom:16px;display:none;line-height:1.5;text-align:center;}
+.notif-bar.show{display:block;}
+.notif-bar strong{display:block;margin-bottom:2px;}
+
+.recv-history{margin-top:20px;text-align:left;background:var(--bg);border-radius:14px;padding:14px 16px;}
+.recv-history-title{font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-bottom:10px;}
+.h-item{display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--border);font-size:.82rem;}
+.h-item:last-child{border-bottom:none;}
+.h-emoji{font-size:1.1rem;}
+.h-msg{flex:1;font-weight:600;}
+.h-time{color:var(--muted);font-size:.72rem;}
+
+.btn-ghost{display:block;width:100%;background:none;border:1.5px solid var(--border);border-radius:12px;padding:10px;font-family:'Nunito',sans-serif;font-size:.8rem;color:var(--muted);cursor:pointer;transition:all .2s;margin-top:14px;}
+.btn-ghost:active{border-color:var(--accent-soft);color:var(--accent);}
+</style>
+</head>
+<body>
+
+<!-- ── LOGIN ── -->
+<div id="screen-login" class="screen active">
+  <div class="card">
+    <div class="login-logo">
+      <div class="brand">Study<em>Bell</em> 🔔</div>
+      <div class="sub">He's thinking of you ♥</div>
+    </div>
+    <div class="pin-dots">
+      <div class="pin-dot" id="d0"></div>
+      <div class="pin-dot" id="d1"></div>
+      <div class="pin-dot" id="d2"></div>
+      <div class="pin-dot" id="d3"></div>
+    </div>
+    <div class="numpad">
+      <button class="num-btn" onclick="np(1)">1</button>
+      <button class="num-btn" onclick="np(2)">2</button>
+      <button class="num-btn" onclick="np(3)">3</button>
+      <button class="num-btn" onclick="np(4)">4</button>
+      <button class="num-btn" onclick="np(5)">5</button>
+      <button class="num-btn" onclick="np(6)">6</button>
+      <button class="num-btn" onclick="np(7)">7</button>
+      <button class="num-btn" onclick="np(8)">8</button>
+      <button class="num-btn" onclick="np(9)">9</button>
+      <button class="num-btn" onclick="np('c')">✕</button>
+      <button class="num-btn" onclick="np(0)">0</button>
+      <button class="num-btn del" onclick="np('d')">⌫</button>
+    </div>
+    <div class="pin-error" id="pin-err">Wrong PIN — try again</div>
+  </div>
+</div>
+
+<!-- ── PUSH SETUP STEP (shown once after first login) ── -->
+<div id="screen-setup-push" class="screen">
+  <div class="card">
+    <div class="setup-step">
+      <div class="setup-icon">🔔</div>
+      <div class="setup-title">One last thing!</div>
+      <div class="setup-desc">
+        Tap below so he can send you notifications<br>
+        even when this app is closed or your screen is locked.
+      </div>
+      <button class="btn-enable" id="btn-enable" onclick="doEnablePush()">
+        Enable Notifications
+      </button>
+      <div class="setup-status" id="push-status"></div>
+      <span class="skip-link" onclick="skipPush()">Skip for now</span>
+    </div>
+  </div>
+</div>
+
+<!-- ── RECEIVER ── -->
+<div id="screen-receiver" class="screen">
+  <div class="card">
+    <div class="receiver-body">
+
+      <!-- shown if notifications get blocked later -->
+      <div class="notif-bar" id="notif-bar">
+        <strong>🔕 Notifications off</strong>
+        Go to Chrome → Site Settings → Notifications → Allow this site, then reload.
+      </div>
+
+      <div class="pulse-wrap" id="pulse-wrap">
+        <div class="pulse-ring-1"></div>
+        <div class="pulse-ring-2"></div>
+        <div class="pulse-circle" id="recv-emoji">📖</div>
+      </div>
+
+      <div class="recv-msg"   id="recv-msg"></div>
+      <div class="recv-label" id="recv-label">Waiting for a signal...</div>
+      <div class="recv-when"  id="recv-when">You'll feel it when it arrives 🌸</div>
+
+      <button class="btn-read" id="btn-read" onclick="markRead()">✓ Got it!</button>
+
+      <div class="live-badge">
+        <span class="dot-green"></span> Connected &amp; listening
+      </div>
+
+      <div class="recv-history" id="recv-history" style="display:none">
+        <div class="recv-history-title">Recent signals</div>
+        <div id="history-list"></div>
+      </div>
+    </div>
+    <button class="btn-ghost" onclick="logout()">🔒 Lock</button>
+  </div>
+</div>
+
+<!-- Firebase -->
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+<script>
+// ── HARDCODED CONFIG ──────────────────────────────────────
+const HER_PIN   = '1409';
+const PUSH_URL  = 'https://studybelll-server.onrender.com';
+const FB_CONFIG = {
+  apiKey:     'AIzaSyDDYYyECxxcvXJm3hNYJFnlRJZDDaArYTs',
+  authDomain: 'imucet-32224.firebaseapp.com',
+  projectId:  'imucet-32224'
+};
+
+const SIGNALS = {
+  study:    { emoji:'📚', label:'Study Time!',   msg:'I miss you so much 🥺',        vibe:[100,60,100,60,300,60,100], sound:'gentle'  },
+  break:    { emoji:'☕', label:'Take a Break!', msg:'I want to talk to you ☕',       vibe:[500,150,500,150,500],       sound:'warm'    },
+  thinking: { emoji:'💭', label:'Focus Check!',  msg:'Just thinking of you 💭',       vibe:[80,50,80,50,80,50,80],      sound:'soft'    },
+  night:    { emoji:'🌙', label:'Good Night!',   msg:'Miss you. Sleep well, love ♥', vibe:[200,100,200,100,800],       sound:'lullaby' }
+};
+
+// ── INIT ─────────────────────────────────────────────────
+firebase.initializeApp(FB_CONFIG);
+const db = firebase.firestore();
+let pin = '';
+let unsubSignal = null;
+let heartbeatTimer = null;
+let signalHistory  = [];
+let audioCtx       = null;
+
+// ── AUDIO ────────────────────────────────────────────────
+function getCtx(){ return audioCtx||(audioCtx=new(window.AudioContext||window.webkitAudioContext)()); }
+function chime(type){
+  try{
+    const ctx=getCtx();
+    const sc={
+      gentle: [{f:523,t:0,d:.25},{f:659,t:.18,d:.25},{f:784,t:.36,d:.45}],
+      warm:   [{f:440,t:0,d:.3 },{f:550,t:.22,d:.3 },{f:660,t:.44,d:.5 }],
+      soft:   [{f:349,t:0,d:.2 },{f:440,t:.15,d:.2 },{f:523,t:.3, d:.35}],
+      lullaby:[{f:262,t:0,d:.4 },{f:330,t:.3, d:.4 },{f:392,t:.6, d:.6 },{f:330,t:.9,d:.7}]
+    };
+    (sc[type]||sc.gentle).forEach(({f,t,d})=>{
+      const o=ctx.createOscillator(),g=ctx.createGain();
+      o.connect(g);g.connect(ctx.destination);
+      o.type='sine';o.frequency.setValueAtTime(f,ctx.currentTime+t);
+      g.gain.setValueAtTime(0,ctx.currentTime+t);
+      g.gain.linearRampToValueAtTime(.18,ctx.currentTime+t+.02);
+      g.gain.exponentialRampToValueAtTime(.0001,ctx.currentTime+t+d);
+      o.start(ctx.currentTime+t);o.stop(ctx.currentTime+t+d+.05);
+    });
+  }catch(e){}
+}
+
+// ── PIN ───────────────────────────────────────────────────
+function np(v){
+  if(v==='c'){pin='';dots();return;}
+  if(v==='d'){pin=pin.slice(0,-1);dots();return;}
+  if(pin.length>=4)return;
+  pin+=String(v);dots();
+  if(pin.length===4)setTimeout(check,160);
+}
+function dots(){
+  for(let i=0;i<4;i++)document.getElementById('d'+i).classList.toggle('filled',i<pin.length);
+}
+function check(){
+  if(pin===HER_PIN){
+    pin='';dots();
+    document.getElementById('pin-err').classList.remove('show');
+    afterLogin();
+  } else {
+    document.getElementById('pin-err').classList.add('show');
+    const c=document.querySelector('#screen-login .card');
+    c.style.animation='none';
+    requestAnimationFrame(()=>{c.style.animation='shake .45s ease';});
+    setTimeout(()=>{pin='';dots();},350);
+  }
+}
+
+// ── AFTER LOGIN ───────────────────────────────────────────
+function afterLogin(){
+  // Has she ever enabled push on this device?
+  const pushDone = localStorage.getItem('sb_push_done');
+  if(!pushDone && 'PushManager' in window && Notification.permission !== 'denied'){
+    show('setup-push');
+  } else {
+    goReceiver();
+  }
+}
+
+// ── PUSH ENABLE SCREEN ────────────────────────────────────
+async function doEnablePush(){
+  const btn = document.getElementById('btn-enable');
+  const st  = document.getElementById('push-status');
+  btn.disabled = true;
+  btn.textContent = 'Requesting permission...';
+  st.className = 'setup-status';
+  st.textContent = '';
+
+  try {
+    // 1. Ask permission
+    const perm = await Notification.requestPermission();
+    if(perm !== 'granted'){
+      st.className='setup-status fail';
+      st.textContent='Permission denied. Go to Chrome → Site Settings → Notifications → Allow this site.';
+      btn.disabled=false;
+      btn.textContent='Try Again';
+      return;
+    }
+
+    btn.textContent='Registering with server...';
+
+    // 2. Wait for SW
+    if(!('serviceWorker' in navigator)){
+      st.className='setup-status fail';
+      st.textContent='Service Worker not supported in this browser. Use Chrome.';
+      btn.disabled=false;btn.textContent='Ok';
+      return;
+    }
+
+    // Register SW if not already
+    await navigator.serviceWorker.register('./sw.js');
+    const sw = await Promise.race([
+      navigator.serviceWorker.ready,
+      new Promise((_,r)=>setTimeout(()=>r(new Error('SW timeout')),12000))
+    ]);
+
+    // 3. Get VAPID key from server
+    const resp = await fetch(PUSH_URL+'/vapid-public-key');
+    if(!resp.ok) throw new Error('Push server unreachable ('+resp.status+'). Try again in 30 seconds — it may be waking up.');
+    const { publicKey } = await resp.json();
+
+    // 4. Always create fresh subscription
+    let sub = await sw.pushManager.getSubscription();
+    if(sub) await sub.unsubscribe();
+    sub = await sw.pushManager.subscribe({
+      userVisibleOnly:true,
+      applicationServerKey: b64toArr(publicKey)
+    });
+
+    // 5. Save to Firestore
+    await db.collection('studybell').doc('push-receiver').set({
+      subscription: JSON.stringify(sub.toJSON()),
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+
+    // 6. Mark done locally
+    localStorage.setItem('sb_push_done','1');
+
+    st.className='setup-status ok';
+    st.textContent='✓ All set! You\'ll get notified even when this is closed.';
+    btn.textContent='✓ Done!';
+
+    // Auto-proceed to receiver after 1.5s
+    setTimeout(goReceiver, 1500);
+
+  } catch(e){
+    st.className='setup-status fail';
+    st.textContent='Error: '+e.message;
+    btn.disabled=false;
+    btn.textContent='Try Again';
+    console.error('Push setup error:',e);
+  }
+}
+
+function skipPush(){
+  localStorage.setItem('sb_push_done','skipped');
+  goReceiver();
+}
+
+// ── RE-REGISTER SILENTLY ON EVERY RECEIVER OPEN ───────────
+// This ensures Firestore always has a fresh/valid subscription
+async function reRegisterPush(){
+  if(Notification.permission!=='granted') return;
+  if(!('serviceWorker' in navigator)) return;
+  try{
+    const sw = await Promise.race([
+      navigator.serviceWorker.ready,
+      new Promise((_,r)=>setTimeout(()=>r(new Error('timeout')),8000))
+    ]);
+    const resp = await fetch(PUSH_URL+'/vapid-public-key');
+    if(!resp.ok) return;
+    const { publicKey } = await resp.json();
+
+    let sub = await sw.pushManager.getSubscription();
+    // Only re-subscribe if no current sub (don't force-reset every time)
+    if(!sub){
+      sub = await sw.pushManager.subscribe({
+        userVisibleOnly:true,
+        applicationServerKey:b64toArr(publicKey)
+      });
+    }
+    await db.collection('studybell').doc('push-receiver').set({
+      subscription: JSON.stringify(sub.toJSON()),
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    console.log('Push subscription verified ✅');
+  }catch(e){ console.warn('Silent re-register failed:',e); }
+}
+
+// ── GO TO RECEIVER SCREEN ─────────────────────────────────
+function goReceiver(){
+  show('receiver');
+  startHeartbeat();
+  startListening();
+  reRegisterPush();
+
+  // Show notif bar if blocked
+  if(Notification.permission==='denied'){
+    document.getElementById('notif-bar').classList.add('show');
+  }
+
+  // Keep screen awake
+  if('wakeLock' in navigator) navigator.wakeLock.request('screen').catch(()=>{});
+}
+
+// ── HEARTBEAT ────────────────────────────────────────────
+function startHeartbeat(){
+  const write=()=>db.collection('studybell').doc('presence').set({
+    online:true,
+    lastSeen:firebase.firestore.FieldValue.serverTimestamp()
+  }).catch(()=>{});
+  write();
+  heartbeatTimer=setInterval(write,20000);
+  window.addEventListener('beforeunload',()=>{
+    db.collection('studybell').doc('presence').set({online:false,lastSeen:firebase.firestore.FieldValue.serverTimestamp()}).catch(()=>{});
+  });
+  // Also write on visibility change (tab comes back)
+  document.addEventListener('visibilitychange',()=>{ if(!document.hidden) write(); });
+}
+
+// ── LISTEN FOR SIGNALS ────────────────────────────────────
+function startListening(){
+  let lastTs = null;
+  unsubSignal = db.collection('studybell').doc('signal').onSnapshot(doc=>{
+    if(!doc.exists)return;
+    const d=doc.data();
+    if(!d||!d.timestamp)return;
+    if(d.read)return;
+    const ts=d.timestamp?.toMillis?.()??0;
+    if(lastTs!==null && ts<=lastTs)return;
+    lastTs=ts;
+    onSignal(d);
+  },err=>console.error('Listener error:',err));
+}
+
+function onSignal(data){
+  const sig=SIGNALS[data.type]||{};
+  chime(sig.sound||'gentle');
+  if(navigator.vibrate) navigator.vibrate(sig.vibe||[300,100,300]);
+
+  document.getElementById('recv-emoji').textContent = data.emoji;
+  document.getElementById('recv-msg').textContent   = data.msg;
+  document.getElementById('recv-label').textContent = data.label;
+  document.getElementById('recv-when').textContent  = 'Just now 💌';
+  document.getElementById('pulse-wrap').classList.add('pinging');
+  document.getElementById('btn-read').classList.add('visible');
+
+  addHistory(data);
+
+  // In-app notification if tab visible
+  if(!document.hidden && Notification.permission==='granted'){
+    try{ new Notification('🔔 '+data.label,{body:data.msg,silent:false}); }catch(e){}
+  }
+}
+
+async function markRead(){
+  try{ await db.collection('studybell').doc('signal').update({read:true}); }catch(e){}
+  document.getElementById('pulse-wrap').classList.remove('pinging');
+  document.getElementById('recv-emoji').textContent = '📖';
+  document.getElementById('recv-msg').textContent   = '';
+  document.getElementById('recv-label').textContent = 'Waiting for a signal...';
+  document.getElementById('recv-when').textContent  = 'You\'ll feel it when it arrives 🌸';
+  document.getElementById('btn-read').classList.remove('visible');
+}
+
+function addHistory(data){
+  const t=new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+  signalHistory.unshift({emoji:data.emoji,msg:data.msg,time:t});
+  if(signalHistory.length>5) signalHistory.pop();
+  document.getElementById('history-list').innerHTML=signalHistory.map(h=>
+    `<div class="h-item"><span class="h-emoji">${h.emoji}</span><span class="h-msg">${h.msg}</span><span class="h-time">${h.time}</span></div>`
+  ).join('');
+  document.getElementById('recv-history').style.display='block';
+}
+
+// ── LOGOUT ────────────────────────────────────────────────
+function logout(){
+  if(unsubSignal){unsubSignal();unsubSignal=null;}
+  if(heartbeatTimer){clearInterval(heartbeatTimer);heartbeatTimer=null;}
+  db.collection('studybell').doc('presence').set({online:false,lastSeen:firebase.firestore.FieldValue.serverTimestamp()}).catch(()=>{});
+  pin='';dots();
+  document.getElementById('pin-err').classList.remove('show');
+  show('login');
+}
+
+// ── UTILS ─────────────────────────────────────────────────
+function show(name){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById('screen-'+name).classList.add('active');
+}
+function b64toArr(b64){
+  const pad='='.repeat((4-b64.length%4)%4);
+  const raw=atob((b64+pad).replace(/-/g,'+').replace(/_/g,'/'));
+  return Uint8Array.from([...raw].map(c=>c.charCodeAt(0)));
+}
+
+// SW registration
+if('serviceWorker' in navigator){
+  window.addEventListener('load',()=>{
+    navigator.serviceWorker.register('./sw.js').catch(e=>console.warn('SW:',e));
+  });
+}
+</script>
+</body>
+</html>

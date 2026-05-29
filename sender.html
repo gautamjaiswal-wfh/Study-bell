@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>StudyBell — Sender</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#c97b61">
+<link rel="apple-touch-icon" href="./icon-192.png">
+<link rel="icon" type="image/png" href="./icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=Nunito:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #fdf6f0;
+  --card: #fff9f5;
+  --accent: #c97b61;
+  --accent-deep: #a85f47;
+  --accent-soft: #f5c4b3;
+  --accent-pale: #fdeee8;
+  --text: #3a2520;
+  --muted: #967d76;
+  --border: #efddd6;
+  --success: #6aab8a;
+  --danger: #c05050;
+  --radius: 22px;
+}
+* { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+html,body { height:100%; }
+body {
+  font-family:'Nunito',sans-serif;
+  background:var(--bg);
+  background-image:radial-gradient(circle at 20% 20%,#fceae2 0%,transparent 50%),
+                   radial-gradient(circle at 80% 80%,#f8e8e0 0%,transparent 50%);
+  color:var(--text);
+  min-height:100svh;
+  display:flex; align-items:center; justify-content:center;
+  padding:20px 20px 36px;
+}
+.screen { display:none; width:100%; max-width:380px; animation:fadeUp .3s ease; }
+.screen.active { display:block; }
+@keyframes fadeUp {
+  from { opacity:0; transform:translateY(16px); }
+  to   { opacity:1; transform:translateY(0); }
+}
+.card {
+  background:var(--card);
+  border-radius:var(--radius);
+  padding:36px 28px;
+  box-shadow:0 4px 24px rgba(180,100,80,.10),0 1px 3px rgba(180,100,80,.06);
+  border:1px solid var(--border);
+}
+
+/* ── LOGIN ── */
+.login-logo { text-align:center; margin-bottom:28px; }
+.login-logo .brand { font-family:'Cormorant Garamond',serif; font-size:2.2rem; color:var(--accent); line-height:1; }
+.login-logo .brand em { font-style:italic; }
+.login-logo .sub { font-size:.72rem; color:var(--muted); letter-spacing:.14em; text-transform:uppercase; margin-top:4px; }
+.pin-dots { display:flex; justify-content:center; gap:18px; margin-bottom:32px; }
+.pin-dot { width:13px; height:13px; border-radius:50%; border:2px solid var(--accent-soft); transition:all .18s cubic-bezier(.34,1.6,.64,1); }
+.pin-dot.filled { background:var(--accent); border-color:var(--accent); transform:scale(1.15); }
+.numpad { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; max-width:230px; margin:0 auto; }
+.num-btn { aspect-ratio:1; border:none; background:var(--bg); border-radius:50%; font-family:'Nunito',sans-serif; font-size:1.35rem; font-weight:600; color:var(--text); cursor:pointer; transition:all .15s; border:1.5px solid transparent; }
+.num-btn:active { background:var(--accent-pale); border-color:var(--accent-soft); transform:scale(0.9); }
+.num-btn.del { font-size:1.1rem; color:var(--muted); }
+.pin-error { text-align:center; color:var(--danger); font-size:.8rem; margin-top:18px; opacity:0; transition:opacity .25s; font-weight:600; }
+.pin-error.show { opacity:1; }
+@keyframes shake {
+  0%,100%{transform:translateX(0)} 20%{transform:translateX(-9px)} 40%{transform:translateX(9px)} 60%{transform:translateX(-6px)} 80%{transform:translateX(6px)}
+}
+
+/* ── SENDER ── */
+.sender-top { display:flex; align-items:center; justify-content:space-between; margin-bottom:24px; }
+.sender-title { font-family:'Cormorant Garamond',serif; font-size:1.55rem; color:var(--accent); line-height:1; }
+.sender-title small { display:block; font-family:'Nunito',sans-serif; font-size:.7rem; font-weight:600; text-transform:uppercase; letter-spacing:.1em; color:var(--muted); margin-top:2px; }
+
+.online-pill { display:flex; align-items:center; gap:6px; background:var(--bg); border:1.5px solid var(--border); border-radius:20px; padding:5px 12px; font-size:.72rem; color:var(--muted); transition:border-color .4s,color .4s; }
+.online-pill.is-online { border-color:#b8e6cf; color:var(--success); }
+.online-pill.is-away   { border-color:var(--border); color:var(--muted); }
+.dot-indicator { width:7px; height:7px; border-radius:50%; background:var(--muted); transition:background .4s; }
+.is-online .dot-indicator { background:var(--success); animation:blink 2s infinite; }
+.is-away   .dot-indicator { background:#c8b0a8; }
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:.2} }
+
+.toast { border-radius:14px; padding:13px 16px; font-size:.88rem; font-weight:600; margin-bottom:18px; text-align:center; opacity:0; transform:translateY(6px); transition:all .3s; pointer-events:none; min-height:48px; }
+.toast.show { opacity:1; transform:translateY(0); }
+.toast.success { background:#e8f7ef; color:var(--success); border:1.5px solid #b8e6cf; }
+.toast.error   { background:#fdeaea; color:var(--danger);  border:1.5px solid #f5c5c5; }
+
+.signal-grid { display:grid; grid-template-columns:1fr 1fr; gap:13px; margin-bottom:20px; }
+.signal-btn { background:var(--card); border:1.5px solid var(--border); border-radius:18px; padding:20px 14px 18px; cursor:pointer; text-align:center; transition:all .18s; display:flex; flex-direction:column; align-items:center; gap:8px; position:relative; overflow:hidden; }
+.signal-btn::after { content:''; position:absolute; inset:0; background:var(--accent-pale); opacity:0; transition:opacity .2s; border-radius:inherit; }
+.signal-btn:active { transform:scale(.94); border-color:var(--accent-soft); }
+.signal-btn:active::after { opacity:1; }
+.signal-btn.sending { opacity:.5; pointer-events:none; }
+.s-emoji  { font-size:2rem; line-height:1; }
+.s-label  { font-size:.88rem; font-weight:700; color:var(--text); }
+.s-hint   { font-size:.7rem; color:var(--muted); font-style:italic; }
+
+.btn-ghost { display:block; width:100%; background:none; border:1.5px solid var(--border); border-radius:12px; padding:10px; font-family:'Nunito',sans-serif; font-size:.8rem; color:var(--muted); cursor:pointer; transition:all .2s; margin-top:4px; }
+.btn-ghost:active { border-color:var(--accent-soft); color:var(--accent); }
+
+/* connection status bar */
+.conn-bar { font-size:.72rem; text-align:center; padding:6px 12px; border-radius:10px; margin-bottom:14px; font-weight:600; display:none; }
+.conn-bar.show { display:block; }
+.conn-bar.offline { background:#fdeaea; color:var(--danger); }
+.conn-bar.online  { background:#e8f7ef; color:var(--success); }
+</style>
+</head>
+<body>
+
+<!-- ── LOGIN ── -->
+<div id="screen-login" class="screen active">
+  <div class="card">
+    <div class="login-logo">
+      <div class="brand">Study<em>Bell</em> 🔔</div>
+      <div class="sub">Your sender panel ✦</div>
+    </div>
+    <div class="pin-dots">
+      <div class="pin-dot" id="d0"></div>
+      <div class="pin-dot" id="d1"></div>
+      <div class="pin-dot" id="d2"></div>
+      <div class="pin-dot" id="d3"></div>
+    </div>
+    <div class="numpad">
+      <button class="num-btn" onclick="np(1)">1</button>
+      <button class="num-btn" onclick="np(2)">2</button>
+      <button class="num-btn" onclick="np(3)">3</button>
+      <button class="num-btn" onclick="np(4)">4</button>
+      <button class="num-btn" onclick="np(5)">5</button>
+      <button class="num-btn" onclick="np(6)">6</button>
+      <button class="num-btn" onclick="np(7)">7</button>
+      <button class="num-btn" onclick="np(8)">8</button>
+      <button class="num-btn" onclick="np(9)">9</button>
+      <button class="num-btn" onclick="np('c')">✕</button>
+      <button class="num-btn" onclick="np(0)">0</button>
+      <button class="num-btn del" onclick="np('d')">⌫</button>
+    </div>
+    <div class="pin-error" id="pin-err">Wrong PIN — try again</div>
+  </div>
+</div>
+
+<!-- ── SENDER PANEL ── -->
+<div id="screen-sender" class="screen">
+  <div class="card">
+    <div class="conn-bar" id="conn-bar"></div>
+
+    <div class="sender-top">
+      <div class="sender-title">
+        StudyBell 🔔
+        <small>Send her a signal</small>
+      </div>
+      <div class="online-pill is-away" id="presence-pill">
+        <span class="dot-indicator"></span>
+        <span id="presence-lbl">Away</span>
+      </div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+    <div class="signal-grid">
+      <button class="signal-btn" id="b-study"    onclick="send('study')">
+        <span class="s-emoji">📚</span>
+        <span class="s-label">Study Time</span>
+        <span class="s-hint">I miss you 🥺</span>
+      </button>
+      <button class="signal-btn" id="b-break"    onclick="send('break')">
+        <span class="s-emoji">☕</span>
+        <span class="s-label">Take a Break</span>
+        <span class="s-hint">Want to talk</span>
+      </button>
+      <button class="signal-btn" id="b-thinking" onclick="send('thinking')">
+        <span class="s-emoji">💭</span>
+        <span class="s-label">Focus Check</span>
+        <span class="s-hint">Thinking of you</span>
+      </button>
+      <button class="signal-btn" id="b-night"    onclick="send('night')">
+        <span class="s-emoji">🌙</span>
+        <span class="s-label">Good Night</span>
+        <span class="s-hint">Sleep well ♥</span>
+      </button>
+    </div>
+
+    <button class="btn-ghost" onclick="logout()">🔒 Lock</button>
+  </div>
+</div>
+
+<!-- Firebase -->
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+<script>
+// ── HARDCODED CONFIG ──────────────────────────────────────
+const MY_PIN     = '1406';
+const PUSH_URL   = 'https://studybelll-server.onrender.com';
+const FB_CONFIG  = {
+  apiKey:     'AIzaSyDDYYyECxxcvXJm3hNYJFnlRJZDDaArYTs',
+  authDomain: 'imucet-32224.firebaseapp.com',
+  projectId:  'imucet-32224'
+};
+
+const SIGNALS = {
+  study:    { emoji:'📚', label:'Study Time!',   msg:'I miss you so much 🥺',        vibe:[100,60,100,60,300,60,100], sound:'gentle' },
+  break:    { emoji:'☕', label:'Take a Break!', msg:'I want to talk to you ☕',       vibe:[500,150,500,150,500],       sound:'warm'   },
+  thinking: { emoji:'💭', label:'Focus Check!',  msg:'Just thinking of you 💭',       vibe:[80,50,80,50,80,50,80],      sound:'soft'   },
+  night:    { emoji:'🌙', label:'Good Night!',   msg:'Miss you. Sleep well, love ♥', vibe:[200,100,200,100,800],       sound:'lullaby'}
+};
+
+// ── INIT ─────────────────────────────────────────────────
+firebase.initializeApp(FB_CONFIG);
+const db = firebase.firestore();
+let pin = '';
+let presUnsub = null;
+let audioCtx  = null;
+
+// ── AUDIO ────────────────────────────────────────────────
+function getCtx() { return audioCtx || (audioCtx = new (window.AudioContext||window.webkitAudioContext)()); }
+function chime(type) {
+  try {
+    const ctx = getCtx();
+    const sc  = {
+      gentle:  [{f:523,t:0,d:.25},{f:659,t:.18,d:.25},{f:784,t:.36,d:.45}],
+      warm:    [{f:440,t:0,d:.3 },{f:550,t:.22,d:.3 },{f:660,t:.44,d:.5 }],
+      soft:    [{f:349,t:0,d:.2 },{f:440,t:.15,d:.2 },{f:523,t:.3, d:.35}],
+      lullaby: [{f:262,t:0,d:.4 },{f:330,t:.3, d:.4 },{f:392,t:.6, d:.6 },{f:330,t:.9,d:.7}]
+    };
+    (sc[type]||sc.gentle).forEach(({f,t,d})=>{
+      const o=ctx.createOscillator(), g=ctx.createGain();
+      o.connect(g); g.connect(ctx.destination);
+      o.type='sine'; o.frequency.setValueAtTime(f,ctx.currentTime+t);
+      g.gain.setValueAtTime(0,ctx.currentTime+t);
+      g.gain.linearRampToValueAtTime(.18,ctx.currentTime+t+.02);
+      g.gain.exponentialRampToValueAtTime(.0001,ctx.currentTime+t+d);
+      o.start(ctx.currentTime+t); o.stop(ctx.currentTime+t+d+.05);
+    });
+  } catch(e){}
+}
+
+// ── PIN LOGIN ─────────────────────────────────────────────
+function np(v) {
+  if (v==='c'){pin='';dots();return;}
+  if (v==='d'){pin=pin.slice(0,-1);dots();return;}
+  if (pin.length>=4) return;
+  pin+=String(v); dots();
+  if (pin.length===4) setTimeout(check,160);
+}
+function dots() {
+  for(let i=0;i<4;i++) document.getElementById('d'+i).classList.toggle('filled',i<pin.length);
+}
+function check() {
+  if (pin===MY_PIN) {
+    pin=''; dots();
+    document.getElementById('pin-err').classList.remove('show');
+    watchPresence();
+    show('sender');
+  } else {
+    document.getElementById('pin-err').classList.add('show');
+    const c=document.querySelector('#screen-login .card');
+    c.style.animation='none';
+    requestAnimationFrame(()=>{c.style.animation='shake .45s ease';});
+    setTimeout(()=>{pin='';dots();},350);
+  }
+}
+function logout() {
+  if(presUnsub){presUnsub();presUnsub=null;}
+  pin=''; dots();
+  document.getElementById('pin-err').classList.remove('show');
+  show('login');
+}
+
+// ── PRESENCE WATCH ────────────────────────────────────────
+function watchPresence() {
+  const pill  = document.getElementById('presence-pill');
+  const label = document.getElementById('presence-lbl');
+  presUnsub = db.collection('studybell').doc('presence').onSnapshot(doc=>{
+    if(!doc.exists){away();return;}
+    const d=doc.data();
+    if(!d||!d.lastSeen){away();return;}
+    const age = Date.now()-(d.lastSeen.toMillis?.()??0);
+    if(d.online && age<90000){
+      pill.className='online-pill is-online';
+      label.textContent='Online';
+    } else { away(); }
+  },()=>away());
+  function away(){
+    pill.className='online-pill is-away';
+    label.textContent='Away';
+  }
+}
+
+// ── SEND SIGNAL ───────────────────────────────────────────
+async function send(type) {
+  const sig = SIGNALS[type];
+  const btn = document.getElementById('b-'+type);
+  chime(sig.sound);
+  if(navigator.vibrate) navigator.vibrate([60,40,60]);
+  btn.classList.add('sending');
+
+  try {
+    await db.collection('studybell').doc('signal').set({
+      type, emoji:sig.emoji, label:sig.label, msg:sig.msg,
+      timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+      read: false
+    });
+    toast('✓ Signal sent — she\'ll feel it!','success');
+    firePush(sig);
+  } catch(e) {
+    toast('❌ '+e.message,'error');
+  } finally {
+    setTimeout(()=>btn.classList.remove('sending'),1800);
+  }
+}
+
+async function firePush(sig) {
+  try {
+    const snap = await db.collection('studybell').doc('push-receiver').get();
+    if(!snap.exists) { console.warn('No push subscription saved yet.'); return; }
+    const { subscription } = snap.data();
+    if(!subscription) return;
+    const r = await fetch(PUSH_URL+'/send-push',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({
+        subscription: JSON.parse(subscription),
+        title:'🔔 '+sig.label,
+        body: sig.msg,
+        icon:'./icon-192.png',
+        badge:'./icon-192.png',
+        vibrate: sig.vibe,
+        tag:'studybell-signal'
+      })
+    });
+    const result = await r.json();
+    if(!r.ok) console.warn('Push server error:',result);
+    else console.log('Push fired ✅');
+  } catch(e){ console.warn('Push failed:',e); }
+}
+
+// ── HELPERS ───────────────────────────────────────────────
+function show(name) {
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById('screen-'+name).classList.add('active');
+}
+function toast(msg,type) {
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.className='toast show '+type;
+  setTimeout(()=>t.classList.remove('show'),3500);
+}
+
+// Connection monitor
+window.addEventListener('online',  ()=>connBar('Back online ✓','online'));
+window.addEventListener('offline', ()=>connBar('No internet connection','offline'));
+function connBar(msg,type) {
+  const b=document.getElementById('conn-bar');
+  b.textContent=msg; b.className='conn-bar show '+type;
+  if(type==='online') setTimeout(()=>b.classList.remove('show'),2500);
+}
+</script>
+</body>
+</html>
