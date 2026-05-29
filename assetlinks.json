@@ -2,7 +2,7 @@
   "relation": ["delegate_permission/common.handle_all_urls"],
   "target": {
     "namespace": "android_app",
-    "package_name": "com.gautam.studybell",
+    "package_name": "io.github.gautamjaiswal_wfh.twa",
     "sha256_cert_fingerprints": [
       "96:61:B6:EF:2D:70:C7:F1:70:87:6C:D9:C4:E6:91:A9:12:89:E6:D0:08:5B:BD:DF:EE:F4:16:1C:9D:3F:2B:AA"
     ]
