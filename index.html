@@ -271,6 +271,8 @@ body {
   color: var(--muted);
   margin-top: 2px;
 }
+
+/* Presence pill — live status of receiver */
 .online-pill {
   display: flex;
   align-items: center;
@@ -281,13 +283,20 @@ body {
   padding: 5px 12px;
   font-size: 0.72rem;
   color: var(--muted);
+  transition: border-color 0.4s, color 0.4s;
 }
-.dot-green {
+.online-pill.is-online  { border-color: #b8e6cf; color: var(--success); }
+.online-pill.is-away    { border-color: var(--border); color: var(--muted); }
+
+.dot-indicator {
   width: 7px; height: 7px;
   border-radius: 50%;
-  background: var(--success);
-  animation: blink 2s infinite;
+  background: var(--muted);
+  transition: background 0.4s;
 }
+.is-online .dot-indicator { background: var(--success); animation: blink 2s infinite; }
+.is-away   .dot-indicator { background: #c8b0a8; animation: none; }
+
 @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.2} }
 
 .toast {
@@ -352,6 +361,9 @@ body {
   color: var(--muted);
   font-style: italic;
 }
+
+/* Sending spinner overlay on button */
+.signal-btn.sending { opacity: 0.6; pointer-events: none; }
 
 .btn-ghost {
   display: block;
@@ -463,6 +475,34 @@ body {
   margin-top: 26px;
   font-weight: 600;
 }
+.dot-green {
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: var(--success);
+  animation: blink 2s infinite;
+}
+
+/* Push permission banner */
+.push-banner {
+  background: var(--accent-pale);
+  border: 1.5px solid var(--accent-soft);
+  border-radius: 13px;
+  padding: 11px 14px;
+  font-size: 0.8rem;
+  color: var(--accent-deep);
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.push-banner:active { background: #f9d4c5; }
+.push-banner .pb-icon { font-size: 1.3rem; flex-shrink: 0; }
+.push-banner .pb-text { flex: 1; line-height: 1.4; }
+.push-banner .pb-text strong { display: block; font-size: 0.85rem; margin-bottom: 2px; }
+.push-banner.hidden { display: none; }
 
 .recv-history {
   margin-top: 22px;
@@ -523,6 +563,13 @@ body {
       <label>Firebase Project ID</label>
       <input type="text" id="cfg-projectId" placeholder="my-project-id">
     </div>
+
+    <!-- NEW: Push server URL field -->
+    <div class="field">
+      <label>Push Server URL (Render.com)</label>
+      <input type="text" id="cfg-pushServer" placeholder="https://studybell.onrender.com">
+    </div>
+
     <div class="field-row">
       <div class="field">
         <label>Your PIN (Sender)</label>
@@ -588,30 +635,32 @@ body {
         StudyBell 🔔
         <small>Send a reminder</small>
       </div>
-      <div class="online-pill">
-        <span class="dot-green"></span> Live
+      <!-- Presence indicator — updated by watchPresence() -->
+      <div class="online-pill is-away" id="presence-pill">
+        <span class="dot-indicator"></span>
+        <span id="presence-label">Away</span>
       </div>
     </div>
 
     <div class="toast" id="send-toast"></div>
 
     <div class="signal-grid">
-      <button class="signal-btn" onclick="sendSignal('study')">
+      <button class="signal-btn" id="btn-study" onclick="sendSignal('study')">
         <span class="s-emoji">📚</span>
         <span class="s-label">Study Time</span>
         <span class="s-hint">I miss you 🥺</span>
       </button>
-      <button class="signal-btn" onclick="sendSignal('break')">
+      <button class="signal-btn" id="btn-break" onclick="sendSignal('break')">
         <span class="s-emoji">☕</span>
         <span class="s-label">Take a Break</span>
         <span class="s-hint">Want to talk</span>
       </button>
-      <button class="signal-btn" onclick="sendSignal('thinking')">
+      <button class="signal-btn" id="btn-thinking" onclick="sendSignal('thinking')">
         <span class="s-emoji">💭</span>
         <span class="s-label">Focus Check</span>
         <span class="s-hint">Thinking of you</span>
       </button>
-      <button class="signal-btn" onclick="sendSignal('night')">
+      <button class="signal-btn" id="btn-night" onclick="sendSignal('night')">
         <span class="s-emoji">🌙</span>
         <span class="s-label">Good Night</span>
         <span class="s-hint">Sleep well ♥</span>
@@ -626,6 +675,16 @@ body {
 <div id="screen-receiver" class="screen">
   <div class="card">
     <div class="receiver-body">
+
+      <!-- Push notification enable banner -->
+      <div class="push-banner" id="push-banner" onclick="enablePush()">
+        <span class="pb-icon">🔔</span>
+        <div class="pb-text">
+          <strong>Enable notifications</strong>
+          Get alerts even when the app is closed
+        </div>
+      </div>
+
       <div class="pulse-wrap" id="pulse-wrap">
         <div class="pulse-ring-1"></div>
         <div class="pulse-ring-2"></div>
@@ -669,36 +728,79 @@ const SIGNALS = {
     emoji: '📚',
     label: 'Study Time!',
     msg:   'I miss you so much 🥺',
-    vibe:  [250, 100, 250, 100, 400]
+    vibe:  [100, 60, 100, 60, 300, 60, 100],   // urgent taps then long
+    sound: 'gentle'
   },
   break: {
     emoji: '☕',
     label: 'Take a Break!',
     msg:   'I want to talk to you ☕',
-    vibe:  [600, 200, 600]
+    vibe:  [500, 150, 500, 150, 500],            // three warm pulses
+    sound: 'warm'
   },
   thinking: {
     emoji: '💭',
     label: 'Focus Check!',
     msg:   'Just thinking of you 💭',
-    vibe:  [150, 80, 150, 80, 150]
+    vibe:  [80, 50, 80, 50, 80, 50, 80],        // soft flutters
+    sound: 'soft'
   },
   night: {
     emoji: '🌙',
     label: 'Good Night!',
     msg:   'Miss you. Sleep well, love ♥',
-    vibe:  [200, 100, 200, 100, 800]
+    vibe:  [200, 100, 200, 100, 800],            // slow lullaby
+    sound: 'lullaby'
   }
 };
 
 // ============================================================
+//  SOUND ENGINE  (Web Audio API — no audio file needed)
+// ============================================================
+let audioCtx = null;
+
+function getAudioCtx() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  return audioCtx;
+}
+
+function playChime(type) {
+  try {
+    const ctx = getAudioCtx();
+    const schemes = {
+      gentle:  [{ f: 523.25, t: 0,    d: 0.25 }, { f: 659.25, t: 0.18, d: 0.25 }, { f: 783.99, t: 0.36, d: 0.45 }],
+      warm:    [{ f: 440,    t: 0,    d: 0.3  }, { f: 550,    t: 0.22, d: 0.3  }, { f: 660,    t: 0.44, d: 0.5  }],
+      soft:    [{ f: 349.23, t: 0,    d: 0.2  }, { f: 440,    t: 0.15, d: 0.2  }, { f: 523.25, t: 0.3,  d: 0.35 }],
+      lullaby: [{ f: 261.63, t: 0,    d: 0.4  }, { f: 329.63, t: 0.3,  d: 0.4  }, { f: 392,    t: 0.6,  d: 0.6  }, { f: 329.63, t: 0.9, d: 0.7 }]
+    };
+    const notes = schemes[type] || schemes.gentle;
+    notes.forEach(({ f, t, d }) => {
+      const osc  = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(f, ctx.currentTime + t);
+      gain.gain.setValueAtTime(0, ctx.currentTime + t);
+      gain.gain.linearRampToValueAtTime(0.18, ctx.currentTime + t + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + t + d);
+      osc.start(ctx.currentTime + t);
+      osc.stop(ctx.currentTime + t + d + 0.05);
+    });
+  } catch(e) { /* Audio blocked — silent fallback */ }
+}
+
+// ============================================================
 //  STATE
 // ============================================================
-let db          = null;
-let unsubscribe = null;
-let pinBuffer   = '';
-let CONFIG      = null;
+let db            = null;
+let unsubscribe   = null;
+let presenceUnsub = null;
+let heartbeatInterval = null;
+let pinBuffer     = '';
+let CONFIG        = null;
 let signalHistory = [];
+let currentRole   = null;  // 'sender' | 'receiver'
 
 // ============================================================
 //  INIT
@@ -722,6 +824,12 @@ window.addEventListener('load', () => {
   const rt = document.getElementById('reset-touch');
   rt.addEventListener('touchstart', () => { resetTimer = setTimeout(resetConfig, 3000); });
   rt.addEventListener('touchend',   () => clearTimeout(resetTimer));
+
+  // Pre-fill push server if already saved
+  if (CONFIG && CONFIG.pushServer) {
+    const el = document.getElementById('cfg-pushServer');
+    if (el) el.value = CONFIG.pushServer;
+  }
 });
 
 function initFirebase() {
@@ -743,34 +851,28 @@ function initFirebase() {
 //  SETUP
 // ============================================================
 function saveConfig() {
-  const apiKey    = v('cfg-apiKey').trim();
-  const projectId = v('cfg-projectId').trim();
-  const pin1      = v('cfg-pin1').trim();
-  const pin2      = v('cfg-pin2').trim();
-  const errEl     = document.getElementById('setup-error');
-
-  console.log('Saving config...', {apiKey: apiKey.slice(0,5)+'...', projectId, pin1, pin2});
+  const apiKey     = v('cfg-apiKey').trim();
+  const projectId  = v('cfg-projectId').trim();
+  const pushServer = v('cfg-pushServer').trim().replace(/\/$/, '');
+  const pin1       = v('cfg-pin1').trim();
+  const pin2       = v('cfg-pin2').trim();
 
   if (!apiKey || !projectId || !pin1 || !pin2) {
-    showSetupError('⚠️ Please fill in all 4 fields!'); 
-    console.warn('Missing fields');
+    showSetupError('⚠️ Please fill in all fields (Push Server URL is optional but recommended)!');
     return;
   }
   if (!/^\d{4}$/.test(pin1) || !/^\d{4}$/.test(pin2)) {
-    showSetupError('⚠️ Both PINs must be exactly 4 digits (0-9).'); 
-    console.warn('Invalid PIN format');
+    showSetupError('⚠️ Both PINs must be exactly 4 digits (0-9).');
     return;
   }
   if (pin1 === pin2) {
-    showSetupError('⚠️ Your PIN and her PIN must be DIFFERENT.'); 
-    console.warn('Same PINs');
+    showSetupError('⚠️ Your PIN and her PIN must be DIFFERENT.');
     return;
   }
 
-  CONFIG = { apiKey, projectId, pin1, pin2 };
+  CONFIG = { apiKey, projectId, pushServer, pin1, pin2 };
   localStorage.setItem('studybell_cfg', JSON.stringify(CONFIG));
-  console.log('Config saved!');
-  errEl.classList.remove('show');
+  document.getElementById('setup-error').classList.remove('show');
   initFirebase();
   setTimeout(() => showScreen('login'), 300);
 }
@@ -784,9 +886,9 @@ function showSetupError(msg) {
 function resetConfig() {
   if (confirm('Reset all settings? You will need to enter Firebase config again.')) {
     localStorage.removeItem('studybell_cfg');
+    stopPresence();
     if (unsubscribe) unsubscribe();
-    db = null;
-    CONFIG = null;
+    db = null; CONFIG = null;
     showScreen('setup');
   }
 }
@@ -814,21 +916,144 @@ function checkPin() {
   if (pinBuffer === CONFIG.pin1) {
     pinBuffer = ''; updateDots();
     errEl.classList.remove('show');
+    currentRole = 'sender';
+    startPresenceWatch();
     showScreen('sender');
   } else if (pinBuffer === CONFIG.pin2) {
     pinBuffer = ''; updateDots();
     errEl.classList.remove('show');
+    currentRole = 'receiver';
     startReceiver();
     showScreen('receiver');
+    checkPushBanner();
+    startHeartbeat();
   } else {
     errEl.classList.add('show');
     const card = document.querySelector('#screen-login .card');
     card.style.animation = 'none';
-    requestAnimationFrame(() => {
-      card.style.animation = 'shake 0.45s ease';
-    });
+    requestAnimationFrame(() => { card.style.animation = 'shake 0.45s ease'; });
     setTimeout(() => { pinBuffer = ''; updateDots(); }, 300);
   }
+}
+
+// ============================================================
+//  PRESENCE  (receiver heartbeat → sender sees Online/Away)
+// ============================================================
+function startHeartbeat() {
+  if (!db) return;
+  const writeHeartbeat = () => {
+    db.collection('studybell').doc('presence').set({
+      online: true,
+      lastSeen: firebase.firestore.FieldValue.serverTimestamp()
+    }).catch(() => {});
+  };
+  writeHeartbeat();
+  heartbeatInterval = setInterval(writeHeartbeat, 30000); // every 30s
+
+  // Mark offline when page/tab closes
+  window.addEventListener('beforeunload', () => {
+    db.collection('studybell').doc('presence').set({ online: false,
+      lastSeen: firebase.firestore.FieldValue.serverTimestamp() }).catch(() => {});
+  });
+}
+
+function startPresenceWatch() {
+  if (!db) return;
+  const pill  = document.getElementById('presence-pill');
+  const label = document.getElementById('presence-label');
+
+  presenceUnsub = db.collection('studybell').doc('presence')
+    .onSnapshot(doc => {
+      if (!doc.exists) { setAway(); return; }
+      const data = doc.data();
+      if (!data || !data.lastSeen) { setAway(); return; }
+
+      const ageMs = Date.now() - (data.lastSeen.toMillis?.() || 0);
+      const isOnline = data.online && ageMs < 70000; // stale if >70s
+
+      if (isOnline) {
+        pill.className  = 'online-pill is-online';
+        label.textContent = 'Online';
+      } else {
+        setAway();
+      }
+    }, () => setAway());
+
+  function setAway() {
+    pill.className = 'online-pill is-away';
+    label.textContent = 'Away';
+  }
+}
+
+function stopPresence() {
+  if (presenceUnsub) { presenceUnsub(); presenceUnsub = null; }
+  if (heartbeatInterval) { clearInterval(heartbeatInterval); heartbeatInterval = null; }
+}
+
+// ============================================================
+//  PUSH NOTIFICATIONS  (VAPID via Render.com server)
+// ============================================================
+function checkPushBanner() {
+  const banner = document.getElementById('push-banner');
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+    banner.classList.add('hidden'); return;
+  }
+  if (Notification.permission === 'granted') {
+    banner.classList.add('hidden');
+    registerPushSilently();
+  }
+  // else banner stays visible
+}
+
+async function enablePush() {
+  const banner = document.getElementById('push-banner');
+  try {
+    const perm = await Notification.requestPermission();
+    if (perm !== 'granted') {
+      alert('Notifications blocked. Please enable them in your browser settings.');
+      return;
+    }
+    banner.classList.add('hidden');
+    await registerPushSilently();
+    showToastReceiver('✓ Notifications enabled!');
+  } catch(e) {
+    console.warn('Push enable failed:', e);
+  }
+}
+
+async function registerPushSilently() {
+  if (!CONFIG.pushServer) return;
+  try {
+    // Get VAPID public key from our server
+    const resp = await fetch(CONFIG.pushServer + '/vapid-public-key');
+    if (!resp.ok) return;
+    const { publicKey } = await resp.json();
+
+    const sw = await navigator.serviceWorker.ready;
+    let sub = await sw.pushManager.getSubscription();
+    if (!sub) {
+      sub = await sw.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlB64ToUint8Array(publicKey)
+      });
+    }
+
+    // Save subscription to Firestore so sender's signal can reach it
+    await db.collection('studybell').doc('push-receiver').set({
+      subscription: JSON.stringify(sub.toJSON()),
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    console.log('Push subscription saved to Firestore.');
+  } catch(e) {
+    console.warn('Push registration failed:', e);
+  }
+}
+
+function urlB64ToUint8Array(base64String) {
+  const padding = '='.repeat((4 - base64String.length % 4) % 4);
+  const base64  = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const raw     = window.atob(base64);
+  return Uint8Array.from([...raw].map(c => c.charCodeAt(0)));
 }
 
 // ============================================================
@@ -837,6 +1062,12 @@ function checkPin() {
 async function sendSignal(type) {
   if (!db) { showToast('Not connected!', 'error'); return; }
   const sig = SIGNALS[type];
+  const btn = document.getElementById('btn-' + type);
+
+  // Play chime on sender side too (confirmation feel)
+  playChime(sig.sound);
+
+  if (btn) btn.classList.add('sending');
   try {
     await db.collection('studybell').doc('signal').set({
       type,
@@ -846,9 +1077,43 @@ async function sendSignal(type) {
       timestamp: firebase.firestore.FieldValue.serverTimestamp(),
       read: false
     });
-    showToast('✓ Signal sent — she'll feel it!', 'success');
+    showToast('✓ Signal sent — she\'ll feel it!', 'success');
+
+    // Tell push server to fire a push notification to receiver
+    if (CONFIG.pushServer) {
+      triggerPush(sig);
+    }
   } catch(e) {
     showToast('❌ ' + e.message, 'error');
+  } finally {
+    if (btn) setTimeout(() => btn.classList.remove('sending'), 1500);
+  }
+}
+
+async function triggerPush(sig) {
+  try {
+    // Read receiver's subscription from Firestore
+    const doc = await db.collection('studybell').doc('push-receiver').get();
+    if (!doc.exists) return;
+    const { subscription } = doc.data();
+    if (!subscription) return;
+
+    await fetch(CONFIG.pushServer + '/send-push', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        subscription: JSON.parse(subscription),
+        title: '🔔 ' + sig.label,
+        body:  sig.msg,
+        icon:  './icon-192.png',
+        badge: './icon-192.png',
+        vibrate: sig.vibe,
+        tag: 'studybell-signal'
+      })
+    });
+  } catch(e) {
+    console.warn('Push trigger failed:', e);
+    // Signal already in Firestore, so receiver will get it on next open
   }
 }
 
@@ -865,9 +1130,6 @@ function showToast(msg, type) {
 function startReceiver() {
   if (!db) return;
 
-  // Request notification permission
-  if ('Notification' in window) Notification.requestPermission();
-
   // Keep screen awake
   if ('wakeLock' in navigator) {
     navigator.wakeLock.request('screen').catch(() => {});
@@ -880,10 +1142,7 @@ function startReceiver() {
       if (!doc.exists) return;
       const data = doc.data();
       if (!data || !data.timestamp) return;
-      if (data.read) {
-        // Signal was marked as read by receiver
-        return;
-      }
+      if (data.read) return;
 
       const ts = data.timestamp?.toMillis?.() || 0;
       if (lastTs !== null && ts <= lastTs) return;
@@ -896,51 +1155,55 @@ function startReceiver() {
 function onSignalReceived(data) {
   const sig = SIGNALS[data.type] || {};
 
-  // Vibrate (Android Chrome)
+  // Sound chime
+  playChime(sig.sound || 'gentle');
+
+  // Haptic vibration (tuned per signal)
   if (navigator.vibrate) {
-    navigator.vibrate(sig.vibe || [400, 200, 400, 200, 400]);
+    navigator.vibrate(sig.vibe || [300, 100, 300]);
   }
 
   // Update UI
-  document.getElementById('recv-emoji').textContent  = data.emoji;
-  document.getElementById('recv-msg').textContent    = data.msg;
-  document.getElementById('recv-label').textContent  = data.label;
-  document.getElementById('recv-when').textContent   = 'Just now 💌';
+  document.getElementById('recv-emoji').textContent = data.emoji;
+  document.getElementById('recv-msg').textContent   = data.msg;
+  document.getElementById('recv-label').textContent = data.label;
+  document.getElementById('recv-when').textContent  = 'Just now 💌';
   document.getElementById('pulse-wrap').classList.add('recv-pinging');
   document.getElementById('btn-read').classList.add('visible');
 
-  // Add to history
   addToHistory(data);
 
-  // System notification if page is hidden
+  // In-page notification if tab is hidden
   if (document.hidden && Notification.permission === 'granted') {
     try {
-      new Notification('📚 ' + data.label, {
-        body: data.msg,
-        silent: false
-      });
+      new Notification('📚 ' + data.label, { body: data.msg, silent: false });
     } catch(e) {}
   }
 }
 
+function showToastReceiver(msg) {
+  // Simple inline toast for receiver screen — reuse the recv-when text briefly
+  const el = document.getElementById('recv-when');
+  const original = el.textContent;
+  el.textContent = msg;
+  setTimeout(() => { el.textContent = original; }, 3000);
+}
+
 async function markRead() {
   if (db) {
-    try {
-      await db.collection('studybell').doc('signal').update({ read: true });
-    } catch(e) {}
+    try { await db.collection('studybell').doc('signal').update({ read: true }); } catch(e) {}
   }
   document.getElementById('pulse-wrap').classList.remove('recv-pinging');
-  document.getElementById('recv-emoji').textContent  = '📖';
-  document.getElementById('recv-msg').textContent    = '';
-  document.getElementById('recv-label').textContent  = 'Waiting for a signal...';
-  document.getElementById('recv-when').textContent   = 'You\'ll feel it when it arrives 🌸';
+  document.getElementById('recv-emoji').textContent = '📖';
+  document.getElementById('recv-msg').textContent   = '';
+  document.getElementById('recv-label').textContent = 'Waiting for a signal...';
+  document.getElementById('recv-when').textContent  = 'You\'ll feel it when it arrives 🌸';
   document.getElementById('btn-read').classList.remove('visible');
 }
 
 function addToHistory(data) {
   const now = new Date();
   const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-
   signalHistory.unshift({ emoji: data.emoji, msg: data.msg, time: timeStr });
   if (signalHistory.length > 5) signalHistory.pop();
 
@@ -952,7 +1215,6 @@ function addToHistory(data) {
       <span class="h-time">${h.time}</span>
     </div>`
   ).join('');
-
   document.getElementById('recv-history').style.display = 'block';
 }
 
@@ -965,10 +1227,12 @@ function showScreen(name) {
 }
 
 function logout() {
+  stopPresence();
   if (unsubscribe) { unsubscribe(); unsubscribe = null; }
   pinBuffer = '';
   updateDots();
   document.getElementById('pin-error').classList.remove('show');
+  currentRole = null;
   showScreen('login');
 }
 
@@ -976,7 +1240,7 @@ function v(id) { return document.getElementById(id).value; }
 </script>
 
 <script>
-// Register service worker for PWA / offline support
+// Register service worker for PWA / offline support + push
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('./sw.js')
@@ -986,14 +1250,5 @@ if ('serviceWorker' in navigator) {
 }
 </script>
 
-<style>
-@keyframes shake {
-  0%,100% { transform: translateX(0); }
-  20%     { transform: translateX(-10px); }
-  40%     { transform: translateX(10px); }
-  60%     { transform: translateX(-7px); }
-  80%     { transform: translateX(7px); }
-}
-</style>
 </body>
 </html>
