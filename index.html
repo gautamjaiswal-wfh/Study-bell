@@ -948,7 +948,7 @@ function startHeartbeat() {
     }).catch(() => {});
   };
   writeHeartbeat();
-  heartbeatInterval = setInterval(writeHeartbeat, 30000); // every 30s
+  heartbeatInterval = setInterval(writeHeartbeat, 20000); // every 20s
 
   // Mark offline when page/tab closes
   window.addEventListener('beforeunload', () => {
@@ -969,7 +969,7 @@ function startPresenceWatch() {
       if (!data || !data.lastSeen) { setAway(); return; }
 
       const ageMs = Date.now() - (data.lastSeen.toMillis?.() || 0);
-      const isOnline = data.online && ageMs < 70000; // stale if >70s
+      const isOnline = data.online && ageMs < 90000; // stale if >90s
 
       if (isOnline) {
         pill.className  = 'online-pill is-online';
@@ -995,57 +995,109 @@ function stopPresence() {
 // ============================================================
 function checkPushBanner() {
   const banner = document.getElementById('push-banner');
+
+  // Push not supported on this browser
   if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
-    banner.classList.add('hidden'); return;
+    banner.innerHTML = `<span class="pb-icon">⚠️</span>
+      <div class="pb-text"><strong>Push not supported</strong>
+      Use Chrome on Android for notifications</div>`;
+    return;
   }
+
+  if (Notification.permission === 'denied') {
+    // User previously blocked — show instructions
+    banner.innerHTML = `<span class="pb-icon">🚫</span>
+      <div class="pb-text"><strong>Notifications blocked</strong>
+      Go to Chrome → Site Settings → Notifications → Allow for this site, then reload</div>`;
+    return;
+  }
+
   if (Notification.permission === 'granted') {
+    // Already granted — silently re-register to make sure Firestore has latest subscription
     banner.classList.add('hidden');
     registerPushSilently();
+    return;
   }
-  // else banner stays visible
+
+  // Default: show the tap-to-enable banner
+  banner.classList.remove('hidden');
 }
 
 async function enablePush() {
   const banner = document.getElementById('push-banner');
+  const pbText = banner.querySelector('.pb-text');
+
   try {
+    pbText.innerHTML = '<strong>Requesting permission...</strong>';
+
     const perm = await Notification.requestPermission();
     if (perm !== 'granted') {
-      alert('Notifications blocked. Please enable them in your browser settings.');
+      pbText.innerHTML = `<strong>Permission denied</strong>
+        Go to Chrome ⋮ → Site Settings → Notifications → Allow, then reload`;
       return;
     }
-    banner.classList.add('hidden');
-    await registerPushSilently();
-    showToastReceiver('✓ Notifications enabled!');
+
+    pbText.innerHTML = '<strong>Registering...</strong>Saving to server...';
+    const ok = await registerPushSilently();
+
+    if (ok) {
+      banner.classList.add('hidden');
+      showToastReceiver('✓ Notifications enabled! You will get alerts even when app is closed.');
+    } else {
+      pbText.innerHTML = `<strong>Setup failed</strong>
+        Check Push Server URL in setup screen is correct, then reload`;
+    }
   } catch(e) {
     console.warn('Push enable failed:', e);
+    pbText.innerHTML = '<strong>Error: </strong>' + e.message;
   }
 }
 
 async function registerPushSilently() {
-  if (!CONFIG.pushServer) return;
+  if (!CONFIG.pushServer) {
+    console.warn('No push server URL configured.');
+    return false;
+  }
+  if (!db) {
+    console.warn('Firestore not ready yet.');
+    return false;
+  }
+
   try {
-    // Get VAPID public key from our server
+    // Wait for SW to be fully ready (fixes timing bug)
+    const sw = await Promise.race([
+      navigator.serviceWorker.ready,
+      new Promise((_, rej) => setTimeout(() => rej(new Error('SW timeout')), 10000))
+    ]);
+
+    // Get VAPID public key from push server
     const resp = await fetch(CONFIG.pushServer + '/vapid-public-key');
-    if (!resp.ok) return;
+    if (!resp.ok) {
+      console.warn('Could not reach push server:', resp.status);
+      return false;
+    }
     const { publicKey } = await resp.json();
 
-    const sw = await navigator.serviceWorker.ready;
+    // Force fresh subscription — unsubscribe old one first to avoid stale keys
     let sub = await sw.pushManager.getSubscription();
-    if (!sub) {
-      sub = await sw.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: urlB64ToUint8Array(publicKey)
-      });
-    }
+    if (sub) await sub.unsubscribe();
 
-    // Save subscription to Firestore so sender's signal can reach it
+    sub = await sw.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: urlB64ToUint8Array(publicKey)
+    });
+
+    // Save to Firestore — sender reads this when sending a signal
     await db.collection('studybell').doc('push-receiver').set({
       subscription: JSON.stringify(sub.toJSON()),
       updatedAt: firebase.firestore.FieldValue.serverTimestamp()
     });
-    console.log('Push subscription saved to Firestore.');
+
+    console.log('✅ Push subscription saved to Firestore successfully.');
+    return true;
   } catch(e) {
     console.warn('Push registration failed:', e);
+    return false;
   }
 }
 
