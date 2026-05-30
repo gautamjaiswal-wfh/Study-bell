@@ -465,8 +465,110 @@ body::after {
 .hi-txt{flex:1;font-weight:600;}
 .hi-time{color:var(--muted);font-size:.7rem;}
 
-/* push setup banner */
-.push-setup{
+/* ── IN-APP NOTIFICATION PANEL ── */
+.notif-btn{
+  position:fixed;
+  top:16px;right:16px;
+  width:44px;height:44px;
+  background:var(--card);
+  border:1.5px solid var(--border);
+  border-radius:50%;
+  display:none;
+  align-items:center;justify-content:center;
+  font-size:1.3rem;
+  cursor:pointer;
+  z-index:100;
+  box-shadow:var(--shadow);
+  transition:all .2s;
+}
+.notif-btn.show{display:flex;}
+.notif-btn .badge{
+  position:absolute;
+  top:-4px;right:-4px;
+  width:18px;height:18px;
+  background:var(--danger);
+  border-radius:50%;
+  font-size:.65rem;
+  color:#fff;
+  display:none;
+  align-items:center;justify-content:center;
+  font-weight:700;
+  border:2px solid var(--card);
+}
+.notif-btn .badge.show{display:flex;}
+
+.notif-panel{
+  position:fixed;
+  top:0;right:0;bottom:0;
+  width:min(320px,100vw);
+  background:var(--card);
+  border-left:1px solid var(--border);
+  box-shadow:-8px 0 32px rgba(0,0,0,.12);
+  z-index:200;
+  transform:translateX(100%);
+  transition:transform .3s cubic-bezier(.34,1,.64,1);
+  display:flex;flex-direction:column;
+  overflow:hidden;
+}
+.notif-panel.open{transform:translateX(0);}
+.notif-panel-head{
+  padding:20px 18px 14px;
+  border-bottom:1px solid var(--border);
+  display:flex;align-items:center;justify-content:space-between;
+  background:var(--card);
+}
+.notif-panel-title{
+  font-family:'Playfair Display',serif;
+  font-size:1.1rem;color:var(--accent);
+}
+.notif-close{
+  background:none;border:none;
+  font-size:1.3rem;color:var(--muted);
+  cursor:pointer;padding:4px;
+}
+.notif-list{
+  flex:1;overflow-y:auto;
+  padding:12px 0;
+}
+.notif-empty{
+  text-align:center;
+  color:var(--muted);
+  font-size:.85rem;
+  padding:40px 20px;
+  font-style:italic;
+}
+.notif-item{
+  padding:14px 18px;
+  border-bottom:1px solid var(--border);
+  display:flex;gap:12px;
+  align-items:flex-start;
+  transition:background .2s;
+}
+.notif-item:last-child{border:none;}
+.notif-item.unread{background:var(--pale);}
+.notif-item-icon{font-size:1.6rem;flex-shrink:0;margin-top:2px;}
+.notif-item-body{flex:1;}
+.notif-item-title{font-size:.88rem;font-weight:700;color:var(--text);margin-bottom:3px;}
+.notif-item-msg{font-size:.78rem;color:var(--muted);line-height:1.4;}
+.notif-item-time{font-size:.68rem;color:#c0a49c;margin-top:4px;}
+.notif-clear{
+  padding:14px 18px;
+  border-top:1px solid var(--border);
+  text-align:center;
+}
+.notif-clear button{
+  background:none;border:none;
+  color:var(--muted);font-size:.78rem;
+  cursor:pointer;font-family:'DM Sans',sans-serif;
+  text-decoration:underline;
+}
+.overlay{
+  position:fixed;inset:0;
+  background:rgba(0,0,0,.3);
+  z-index:150;
+  display:none;
+}
+.overlay.show{display:block;}
   background:linear-gradient(135deg,var(--pale),#fde8dc);
   border:1.5px solid var(--soft);
   border-radius:16px;
@@ -608,6 +710,11 @@ body::after {
     <button class="lock-btn" onclick="logout()">🔒 Lock screen</button>
   </div>
 </div>
+
+<!-- Notification bell -->
+<div class="notif-btn" id="notif-btn" onclick="togglePanel()">🔔<span class="badge" id="notif-badge">0</span></div>
+<div class="overlay" id="overlay" onclick="closePanel()"></div>
+<div class="notif-panel" id="notif-panel"><div class="notif-panel-head"><div class="notif-panel-title">Notifications 🔔</div><button class="notif-close" onclick="closePanel()">✕</button></div><div class="notif-list" id="notif-list"><div class="notif-empty">No signals yet 🌸</div></div><div class="notif-clear"><button onclick="clearNotifs()">Clear all</button></div></div>
 
 <!-- Firebase -->
 <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
@@ -759,10 +866,14 @@ function checkPin(){
   const err=document.getElementById('pin-err');
   if(pin===PIN_SENDER){
     pin='';dots();err.classList.remove('show');
-    role='sender'; watchPresence(); show('sender');
+    role='sender';
+    localStorage.setItem('sb_role','sender');
+    watchPresence(); show('sender');
   } else if(pin===PIN_RECEIVER){
     pin='';dots();err.classList.remove('show');
-    role='receiver'; startReceiver(); show('recv');
+    role='receiver';
+    localStorage.setItem('sb_role','receiver');
+    startReceiver(); show('recv');
   } else {
     err.classList.add('show');
     const c=document.querySelector('#s-login .card');
@@ -771,6 +882,17 @@ function checkPin(){
     setTimeout(()=>{pin='';dots();},400);
   }
 }
+
+// Auto-login on page load
+window.addEventListener('DOMContentLoaded',()=>{
+  const saved = localStorage.getItem('sb_role');
+  if(saved==='sender'){
+    role='sender'; watchPresence(); show('sender');
+  } else if(saved==='receiver'){
+    role='receiver'; startReceiver(); show('recv');
+  }
+});
+
 function logout(){
   if(presUnsub){presUnsub();presUnsub=null;}
   if(sigUnsub){sigUnsub();sigUnsub=null;}
@@ -779,6 +901,7 @@ function logout(){
     db.collection('studybell').doc('presence')
       .set({online:false,lastSeen:firebase.firestore.FieldValue.serverTimestamp()}).catch(()=>{});
   }
+  localStorage.removeItem('sb_role');
   role=null; pin=''; dots();
   document.getElementById('pin-err').classList.remove('show');
   show('login');
@@ -861,7 +984,10 @@ async function firePush(sig){
         icon:'./icon-192.png',
         badge:'./icon-192.png',
         vibrate:sig.vibe,
-        tag:'studybell'
+        tag:'studybell',
+        emoji:sig.emoji,
+        label:sig.label,
+        msg:sig.msg
       })
     });
   }catch(e){console.warn('Push failed:',e);}
@@ -880,6 +1006,7 @@ function toast(msg,type){
 function startReceiver(){
   startHeartbeat();
   checkPushState();
+  showNotifBtn();
   if('wakeLock' in navigator) navigator.wakeLock.request('screen').catch(()=>{});
 
   let lastTs=null;
@@ -989,6 +1116,13 @@ function onSignal(data){
   // STRONG vibration
   if(navigator.vibrate) navigator.vibrate(sig.vibe||[800,150,800,150,1200]);
 
+  // Add to in-app notification panel
+  addNotif({
+    emoji: data.emoji||sig.emoji||'🔔',
+    label: data.label||sig.label||'Signal!',
+    msg:   data.msg||sig.msg||''
+  });
+
   // UI
   document.getElementById('bell-icon').textContent=data.emoji||'🔔';
   document.getElementById('bell-wrap').classList.add('ringing');
@@ -998,11 +1132,6 @@ function onSignal(data){
   document.getElementById('got-btn').classList.add('show');
 
   addHistory(data);
-
-  // In-app notification if tab visible
-  if(!document.hidden && Notification.permission==='granted'){
-    try{ new Notification('🔔 '+data.label,{body:data.msg,silent:false}); }catch(e){}
-  }
 }
 
 async function markRead(){
@@ -1039,13 +1168,99 @@ function b64(s){
   return Uint8Array.from([...r].map(c=>c.charCodeAt(0)));
 }
 
-// SW register
+// SW register + listen for push messages from SW
 if('serviceWorker' in navigator){
   window.addEventListener('load',()=>{
     navigator.serviceWorker.register('./sw.js').catch(e=>console.warn('SW:',e));
   });
+  // When SW delivers a push while app is open
+  navigator.serviceWorker.addEventListener('message', e => {
+    if(e.data?.type === 'PUSH_RECEIVED'){
+      const {emoji,label,msg} = e.data;
+      addNotif({emoji,label,msg});
+      if(role==='receiver') onSignal({type:'push',emoji,label,msg});
+    }
+    if(e.data?.type === 'PUSH_SUBSCRIPTION_CHANGED'){
+      saveSubscription(e.data.subscription);
+    }
+  });
+}
+
+// ═══════════════════════════════════════════
+//  IN-APP NOTIFICATION PANEL
+// ═══════════════════════════════════════════
+let notifs = JSON.parse(localStorage.getItem('sb_notifs')||'[]');
+let unread = 0;
+
+function addNotif(data){
+  const t = new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+  notifs.unshift({emoji:data.emoji||'🔔', label:data.label||'Signal', msg:data.msg||'', time:t, read:false});
+  if(notifs.length>20) notifs.pop();
+  localStorage.setItem('sb_notifs', JSON.stringify(notifs));
+  unread++;
+  renderNotifs();
+}
+
+function renderNotifs(){
+  const list = document.getElementById('notif-list');
+  const badge = document.getElementById('notif-badge');
+  if(!notifs.length){
+    list.innerHTML='<div class="notif-empty">No signals yet 🌸</div>';
+  } else {
+    list.innerHTML = notifs.map((n,i)=>`
+      <div class="notif-item ${n.read?'':'unread'}">
+        <span class="notif-item-icon">${n.emoji}</span>
+        <div class="notif-item-body">
+          <div class="notif-item-title">${n.label}</div>
+          <div class="notif-item-msg">${n.msg}</div>
+          <div class="notif-item-time">${n.time}</div>
+        </div>
+      </div>`).join('');
+  }
+  if(unread>0){
+    badge.textContent = unread > 9 ? '9+' : unread;
+    badge.classList.add('show');
+  } else {
+    badge.classList.remove('show');
+  }
+}
+
+function togglePanel(){
+  const panel = document.getElementById('notif-panel');
+  const overlay = document.getElementById('overlay');
+  const isOpen = panel.classList.contains('open');
+  if(isOpen){ closePanel(); }
+  else {
+    panel.classList.add('open');
+    overlay.classList.add('show');
+    // Mark all as read
+    notifs = notifs.map(n=>({...n,read:true}));
+    localStorage.setItem('sb_notifs',JSON.stringify(notifs));
+    unread = 0;
+    renderNotifs();
+  }
+}
+
+function closePanel(){
+  document.getElementById('notif-panel').classList.remove('open');
+  document.getElementById('overlay').classList.remove('show');
+}
+
+function clearNotifs(){
+  notifs=[];
+  localStorage.setItem('sb_notifs','[]');
+  unread=0;
+  renderNotifs();
+}
+
+function showNotifBtn(){
+  const btn = document.getElementById('notif-btn');
+  btn.classList.add('show');
+  // Load saved notifs
+  notifs = JSON.parse(localStorage.getItem('sb_notifs')||'[]');
+  unread = notifs.filter(n=>!n.read).length;
+  renderNotifs();
 }
 </script>
 </body>
 </html>
-
